@@ -1,0 +1,8 @@
+/var/log/hbase/*.out
+{
+    missingok
+    copytruncate
+    compress
+    weekly
+    rotate 52
+}

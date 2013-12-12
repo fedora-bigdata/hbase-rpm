@@ -1,0 +1,1121 @@
+diff --git a/hbase-client/src/main/java/org/apache/hadoop/hbase/protobuf/RequestConverter.java b/hbase-client/src/main/java/org/apache/hadoop/hbase/protobuf/RequestConverter.java
+index b4a3ec7..96bbcb6 100644
+--- a/hbase-client/src/main/java/org/apache/hadoop/hbase/protobuf/RequestConverter.java
++++ b/hbase-client/src/main/java/org/apache/hadoop/hbase/protobuf/RequestConverter.java
+@@ -99,7 +99,6 @@ import org.apache.hadoop.hbase.protobuf.generated.RegionServerStatusProtos.GetLa
+ import org.apache.hadoop.hbase.util.Bytes;
+ import org.apache.hadoop.hbase.util.Pair;
+ import org.apache.hadoop.hbase.util.Triple;
+-import org.mortbay.log.Log;
+ 
+ import com.google.protobuf.ByteString;
+ 
+diff --git a/hbase-hadoop1-compat/src/main/java/org/apache/hadoop/metrics2/lib/MetricMutableHistogram.java b/hbase-hadoop1-compat/src/main/java/org/apache/hadoop/metrics2/lib/MetricMutableHistogram.java
+index b7c24dd..2feb3da 100644
+--- a/hbase-hadoop1-compat/src/main/java/org/apache/hadoop/metrics2/lib/MetricMutableHistogram.java
++++ b/hbase-hadoop1-compat/src/main/java/org/apache/hadoop/metrics2/lib/MetricMutableHistogram.java
+@@ -18,9 +18,9 @@
+ 
+ package org.apache.hadoop.metrics2.lib;
+ 
+-import com.yammer.metrics.stats.ExponentiallyDecayingSample;
+-import com.yammer.metrics.stats.Sample;
+-import com.yammer.metrics.stats.Snapshot;
++import com.codahale.metrics.ExponentiallyDecayingReservoir;
++import com.codahale.metrics.Reservoir;
++import com.codahale.metrics.Snapshot;
+ import org.apache.hadoop.metrics2.MetricHistogram;
+ import org.apache.hadoop.metrics2.MetricsRecordBuilder;
+ 
+@@ -36,7 +36,7 @@ public class MetricMutableHistogram extends MetricMutable implements MetricHisto
+   // Per Cormode et al. an alpha of 0.015 strongly biases to the last 5 minutes
+   private static final double DEFAULT_ALPHA = 0.015;
+ 
+-  private final Sample sample;
++  private final Reservoir sample;
+   private final AtomicLong min;
+   private final AtomicLong max;
+   private final AtomicLong sum;
+@@ -45,7 +45,7 @@ public class MetricMutableHistogram extends MetricMutable implements MetricHisto
+ 
+   public MetricMutableHistogram(String name, String description) {
+     super(name, description);
+-    sample = new ExponentiallyDecayingSample(DEFAULT_SAMPLE_SIZE, DEFAULT_ALPHA);
++    sample = new ExponentiallyDecayingReservoir(DEFAULT_SAMPLE_SIZE, DEFAULT_ALPHA);
+     count = new AtomicLong();
+     min = new AtomicLong(Long.MAX_VALUE);
+     max = new AtomicLong(Long.MIN_VALUE);
+diff --git a/hbase-hadoop2-compat/pom.xml b/hbase-hadoop2-compat/pom.xml
+index a30f0a8..5967da9 100644
+--- a/hbase-hadoop2-compat/pom.xml
++++ b/hbase-hadoop2-compat/pom.xml
+@@ -154,7 +154,7 @@ limitations under the License.
+       <version>${hadoop-two.version}</version>
+     </dependency>
+     <dependency>
+-      <groupId>com.yammer.metrics</groupId>
++      <groupId>com.codahale.metrics</groupId>
+       <artifactId>metrics-core</artifactId>
+     </dependency>
+     <dependency>
+diff --git a/hbase-hadoop2-compat/src/main/java/org/apache/hadoop/metrics2/lib/MutableHistogram.java b/hbase-hadoop2-compat/src/main/java/org/apache/hadoop/metrics2/lib/MutableHistogram.java
+index 2423b95..5c176df 100644
+--- a/hbase-hadoop2-compat/src/main/java/org/apache/hadoop/metrics2/lib/MutableHistogram.java
++++ b/hbase-hadoop2-compat/src/main/java/org/apache/hadoop/metrics2/lib/MutableHistogram.java
+@@ -26,9 +26,9 @@ import org.apache.hadoop.metrics2.MetricHistogram;
+ import org.apache.hadoop.metrics2.MetricsInfo;
+ import org.apache.hadoop.metrics2.MetricsRecordBuilder;
+ 
+-import com.yammer.metrics.stats.ExponentiallyDecayingSample;
+-import com.yammer.metrics.stats.Sample;
+-import com.yammer.metrics.stats.Snapshot;
++import com.codahale.metrics.ExponentiallyDecayingReservoir;
++import com.codahale.metrics.Reservoir;
++import com.codahale.metrics.Snapshot;
+ 
+ /**
+  * A histogram implementation that runs in constant space, and exports to hadoop2's metrics2 system.
+@@ -43,7 +43,7 @@ public class MutableHistogram extends MutableMetric implements MetricHistogram {
+ 
+   private final String name;
+   private final String desc;
+-  private final Sample sample;
++  private final Reservoir sample;
+   private final AtomicLong min;
+   private final AtomicLong max;
+   private final AtomicLong sum;
+@@ -56,7 +56,7 @@ public class MutableHistogram extends MutableMetric implements MetricHistogram {
+   public MutableHistogram(String name, String description) {
+     this.name = StringUtils.capitalize(name);
+     this.desc = StringUtils.uncapitalize(description);
+-    sample = new ExponentiallyDecayingSample(DEFAULT_SAMPLE_SIZE, DEFAULT_ALPHA);
++    sample = new ExponentiallyDecayingReservoir(DEFAULT_SAMPLE_SIZE, DEFAULT_ALPHA);
+     count = new AtomicLong();
+     min = new AtomicLong(Long.MAX_VALUE);
+     max = new AtomicLong(Long.MIN_VALUE);
+diff --git a/hbase-it/pom.xml b/hbase-it/pom.xml
+index 56fedb5..775cd99 100644
+--- a/hbase-it/pom.xml
++++ b/hbase-it/pom.xml
+@@ -185,7 +185,7 @@
+     </dependency>
+     <dependency>
+       <groupId>org.apache.commons</groupId>
+-      <artifactId>commons-math</artifactId>
++      <artifactId>commons-math3</artifactId>
+     </dependency>
+     <dependency>
+       <groupId>commons-lang</groupId>
+diff --git a/hbase-it/src/test/java/org/apache/hadoop/hbase/mttr/IntegrationTestMTTR.java b/hbase-it/src/test/java/org/apache/hadoop/hbase/mttr/IntegrationTestMTTR.java
+index 5646d12..1a8016a 100644
+--- a/hbase-it/src/test/java/org/apache/hadoop/hbase/mttr/IntegrationTestMTTR.java
++++ b/hbase-it/src/test/java/org/apache/hadoop/hbase/mttr/IntegrationTestMTTR.java
+@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
+ import org.apache.commons.lang.RandomStringUtils;
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+-import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
++import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+ import org.apache.hadoop.hbase.ClusterStatus;
+ import org.apache.hadoop.hbase.HColumnDescriptor;
+ import org.apache.hadoop.hbase.HTableDescriptor;
+diff --git a/hbase-server/pom.xml b/hbase-server/pom.xml
+index 1691ed7..3c46ac2 100644
+--- a/hbase-server/pom.xml
++++ b/hbase-server/pom.xml
+@@ -330,7 +330,7 @@
+     </dependency>
+     <!-- General dependencies -->
+     <dependency>
+-      <groupId>com.yammer.metrics</groupId>
++      <groupId>com.codahale.metrics</groupId>
+       <artifactId>metrics-core</artifactId>
+     </dependency>
+     <dependency>
+@@ -359,7 +359,7 @@
+     </dependency>
+     <dependency>
+       <groupId>org.apache.commons</groupId>
+-      <artifactId>commons-math</artifactId>
++      <artifactId>commons-math3</artifactId>
+     </dependency>
+     <dependency>
+       <groupId>log4j</groupId>
+@@ -370,28 +370,28 @@
+       <artifactId>zookeeper</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.mortbay.jetty</groupId>
+-      <artifactId>jetty</artifactId>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-server</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.mortbay.jetty</groupId>
++      <groupId>org.eclipse.jetty</groupId>
+       <artifactId>jetty-util</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.mortbay.jetty</groupId>
+-      <artifactId>jetty-sslengine</artifactId>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-security</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.mortbay.jetty</groupId>
+-      <artifactId>jsp-2.1</artifactId>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-jsp</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.mortbay.jetty</groupId>
+-      <artifactId>jsp-api-2.1</artifactId>
++      <groupId>javax.servlet.jsp</groupId>
++      <artifactId>jsp-api</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>org.mortbay.jetty</groupId>
+-      <artifactId>servlet-api-2.5</artifactId>
++      <groupId>org.eclipse.jetty</groupId>
++      <artifactId>jetty-servlet</artifactId>
+     </dependency>
+     <dependency>
+       <groupId>org.codehaus.jackson</groupId>
+@@ -406,12 +406,12 @@
+       <artifactId>jackson-jaxrs</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>tomcat</groupId>
+-      <artifactId>jasper-compiler</artifactId>
++      <groupId>org.codehaus.mojo.jspc</groupId>
++      <artifactId>jspc-compiler-tomcat6</artifactId>
+     </dependency>
+     <dependency>
+-      <groupId>tomcat</groupId>
+-      <artifactId>jasper-runtime</artifactId>
++      <groupId>org.glassfish.web</groupId>
++      <artifactId>javax.servlet.jsp</artifactId>
+     </dependency>
+     <dependency>
+       <groupId>org.jamon</groupId>
+diff --git a/hbase-server/src/main/jamon/org/apache/hadoop/hbase/tmpl/regionserver/ServerMetricsTmpl.jamon b/hbase-server/src/main/jamon/org/apache/hadoop/hbase/tmpl/regionserver/ServerMetricsTmpl.jamon
+index 6698771..50a9b32 100644
+--- a/hbase-server/src/main/jamon/org/apache/hadoop/hbase/tmpl/regionserver/ServerMetricsTmpl.jamon
++++ b/hbase-server/src/main/jamon/org/apache/hadoop/hbase/tmpl/regionserver/ServerMetricsTmpl.jamon
+@@ -32,7 +32,7 @@ org.apache.hadoop.hbase.protobuf.generated.AdminProtos.ServerInfo;
+ org.apache.hadoop.hbase.protobuf.generated.ClusterStatusProtos.RegionLoad;
+ org.apache.hadoop.hbase.metrics.histogram.MetricsHistogram;
+ org.apache.hadoop.util.StringUtils;
+-com.yammer.metrics.stats.Snapshot;
++com.codahale.metrics.Snapshot;
+ java.lang.management.ManagementFactory;
+ </%import>
+ <div class="tabbable">
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/coprocessor/BaseRegionObserver.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/coprocessor/BaseRegionObserver.java
+index 8f83b76..b68ccc9 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/coprocessor/BaseRegionObserver.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/coprocessor/BaseRegionObserver.java
+@@ -51,7 +51,6 @@ import org.apache.hadoop.hbase.regionserver.compactions.CompactionRequest;
+ import org.apache.hadoop.hbase.regionserver.wal.HLogKey;
+ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
+ import org.apache.hadoop.hbase.util.Pair;
+-import org.mortbay.log.Log;
+ 
+ import com.google.common.collect.ImmutableList;
+ 
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/io/hfile/HFilePrettyPrinter.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/io/hfile/HFilePrettyPrinter.java
+index 9bb504e..cb54fca 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/io/hfile/HFilePrettyPrinter.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/io/hfile/HFilePrettyPrinter.java
+@@ -28,9 +28,9 @@ import java.util.List;
+ import java.util.Locale;
+ import java.util.Map;
+ import java.util.SortedMap;
++import java.util.concurrent.TimeUnit;
+ 
+-import com.yammer.metrics.core.*;
+-import com.yammer.metrics.reporting.ConsoleReporter;
++import com.codahale.metrics.*;
+ 
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.CommandLineParser;
+@@ -380,13 +380,13 @@ public class HFilePrettyPrinter {
+   }
+ 
+   private static class KeyValueStatsCollector {
+-    private final MetricsRegistry metricsRegistry = new MetricsRegistry();
++    private final MetricRegistry metricsRegistry = new MetricRegistry();
+     private final ByteArrayOutputStream metricsOutput = new ByteArrayOutputStream();
+     private final SimpleReporter simpleReporter = new SimpleReporter(metricsRegistry, new PrintStream(metricsOutput));
+-    Histogram keyLen = metricsRegistry.newHistogram(HFilePrettyPrinter.class, "Key length");
+-    Histogram valLen = metricsRegistry.newHistogram(HFilePrettyPrinter.class, "Val length");
+-    Histogram rowSizeBytes = metricsRegistry.newHistogram(HFilePrettyPrinter.class, "Row size (bytes)");
+-    Histogram rowSizeCols = metricsRegistry.newHistogram(HFilePrettyPrinter.class, "Row size (columns)");
++    Histogram keyLen = metricsRegistry.histogram("Key length");
++    Histogram valLen = metricsRegistry.histogram("Val length");
++    Histogram rowSizeBytes = metricsRegistry.histogram("Row size (bytes)");
++    Histogram rowSizeCols = metricsRegistry.histogram("Row size (columns)");
+ 
+     long curRowBytes = 0;
+     long curRowCols = 0;
+@@ -436,9 +436,8 @@ public class HFilePrettyPrinter {
+         return "no data available for statistics";
+ 
+       // Dump the metrics to the output stream
+-      simpleReporter.shutdown();
+-      simpleReporter.run();
+-      metricsRegistry.shutdown();
++      simpleReporter.stop();
++      simpleReporter.report();
+ 
+       return
+               metricsOutput.toString() +
+@@ -446,18 +445,130 @@ public class HFilePrettyPrinter {
+     }
+   }
+ 
+-  private static class SimpleReporter extends ConsoleReporter {
++  private static class SimpleReporter extends ScheduledReporter {
+     private final PrintStream out;
++    private final Locale locale = Locale.getDefault();
+ 
+-    public SimpleReporter(MetricsRegistry metricsRegistry, PrintStream out) {
+-      super(metricsRegistry, out, MetricPredicate.ALL);
++    public SimpleReporter(MetricRegistry metricsRegistry, PrintStream out) {
++      super(metricsRegistry, "simple-reporter", MetricFilter.ALL, TimeUnit.SECONDS, TimeUnit.MILLISECONDS);
+       this.out = out;
+     }
+ 
+     @Override
++    public void report(SortedMap<String, Gauge> gauges,
++                       SortedMap<String, Counter> counters,
++                       SortedMap<String, Histogram> histograms,
++                       SortedMap<String, Meter> meters,
++                       SortedMap<String, Timer> timers) {
++      if (!gauges.isEmpty()) {
++        for (Map.Entry<String, Gauge> entry : gauges.entrySet()) {
++          out.print("   " + entry.getKey());
++          out.println(':');
++          processGauge(entry);
++        }
++      }
++
++      if (!counters.isEmpty()) {
++        for (Map.Entry<String, Counter> entry : counters.entrySet()) {
++          out.print("   " + entry.getKey());
++          out.println(':');
++          processCounter(entry);
++        }
++      }
++
++      if (!histograms.isEmpty()) {
++        for (Map.Entry<String, Histogram> entry : histograms.entrySet()) {
++          out.print("   " + entry.getKey());
++          out.println(':');
++          processHistogram(entry.getValue());
++        }
++      }
++
++      if (!meters.isEmpty()) {
++        for (Map.Entry<String, Meter> entry : meters.entrySet()) {
++          out.print("   " + entry.getKey());
++          out.println(':');
++          processMeter(entry.getValue());
++        }
++      }
++
++      if (!timers.isEmpty()) {
++        for (Map.Entry<String, Timer> entry : timers.entrySet()) {
++          out.print("   " + entry.getKey());
++          out.println(':');
++          processTimer(entry.getValue());
++        }
++      }
++    }
++
++    private void processGauge(Map.Entry<String, Gauge> entry) {
++        out.printf(locale, "    value = %s\n", entry.getValue().getValue());
++    }
++
++    private void processCounter(Map.Entry<String, Counter> entry) {
++        out.printf(locale, "    count = %d\n", entry.getValue().getCount());
++    }
++
++    private void processMeter(Meter meter) {
++        final String rateUnit = getRateUnit();
++        out.printf(locale, "             count = %d\n", meter.getCount());
++        out.printf(locale, "         mean rate = %2.2f events/%s\n",
++                      convertRate(meter.getMeanRate()), rateUnit);
++        out.printf(locale, "     1-minute rate = %2.2f events/%s\n",
++                      convertRate(meter.getOneMinuteRate()), rateUnit);
++        out.printf(locale, "     5-minute rate = %2.2f events/%s\n",
++                      convertRate(meter.getFiveMinuteRate()), rateUnit);
++        out.printf(locale, "    15-minute rate = %2.2f events/%s\n",
++                      convertRate(meter.getFifteenMinuteRate()), rateUnit);
++    }
++
++    private void processHistogram(Histogram histogram) {
++        final Snapshot snapshot = histogram.getSnapshot();
++        out.printf(locale, "               min = %2.2f\n", snapshot.getMin());
++        out.printf(locale, "               max = %2.2f\n", snapshot.getMax());
++        out.printf(locale, "              mean = %2.2f\n", snapshot.getMean());
++        out.printf(locale, "            stddev = %2.2f\n", snapshot.getStdDev());
++        out.printf(locale, "            median = %2.2f\n", snapshot.getMedian());
++        out.printf(locale, "              75%% <= %2.2f\n", snapshot.get75thPercentile());
++        out.printf(locale, "              95%% <= %2.2f\n", snapshot.get95thPercentile());
++        out.printf(locale, "              98%% <= %2.2f\n", snapshot.get98thPercentile());
++        out.printf(locale, "              99%% <= %2.2f\n", snapshot.get99thPercentile());
++        out.printf(locale, "            99.9%% <= %2.2f\n", snapshot.get999thPercentile());
++        out.printf(locale, "             count = %d\n", histogram.getCount());
++    }
++
++    private void processTimer(Timer timer) {
++        final String durationUnit = getDurationUnit();
++        final String rateUnit = getRateUnit();
++        final Snapshot snapshot = timer.getSnapshot();
++        out.printf(locale, "             count = %d\n", timer.getCount());
++        out.printf(locale, "         mean rate = %2.2f events/%s\n",
++                      convertRate(timer.getMeanRate()), rateUnit);
++        out.printf(locale, "     1-minute rate = %2.2f events/%s\n",
++                      convertRate(timer.getOneMinuteRate()), rateUnit);
++        out.printf(locale, "     5-minute rate = %2.2f events/%s\n",
++                      convertRate(timer.getFiveMinuteRate()), rateUnit);
++        out.printf(locale, "    15-minute rate = %2.2f events/%s\n",
++                      convertRate(timer.getFifteenMinuteRate()), rateUnit);
++
++        out.printf(locale, "               min = %2.2f%s\n", convertDuration(snapshot.getMin()), durationUnit);
++        out.printf(locale, "               max = %2.2f%s\n", convertDuration(snapshot.getMax()), durationUnit);
++        out.printf(locale, "              mean = %2.2f%s\n", convertDuration(snapshot.getMean()), durationUnit);
++        out.printf(locale, "            stddev = %2.2f%s\n", convertDuration(snapshot.getStdDev()), durationUnit);
++        out.printf(locale, "            median = %2.2f%s\n", convertDuration(snapshot.getMedian()), durationUnit);
++        out.printf(locale, "              75%% <= %2.2f%s\n", convertDuration(snapshot.get75thPercentile()), durationUnit);
++        out.printf(locale, "              95%% <= %2.2f%s\n", convertDuration(snapshot.get95thPercentile()), durationUnit);
++        out.printf(locale, "              98%% <= %2.2f%s\n", convertDuration(snapshot.get98thPercentile()), durationUnit);
++        out.printf(locale, "              99%% <= %2.2f%s\n", convertDuration(snapshot.get99thPercentile()), durationUnit);
++        out.printf(locale, "            99.9%% <= %2.2f%s\n", convertDuration(snapshot.get999thPercentile()), durationUnit);
++    }
++
++
++
++/*
+     public void run() {
+       for (Map.Entry<String, SortedMap<MetricName, Metric>> entry : getMetricsRegistry().groupedMetrics(
+-              MetricPredicate.ALL).entrySet()) {
++              MetricFilter.ALL).entrySet()) {
+         try {
+           for (Map.Entry<MetricName, Metric> subEntry : entry.getValue().entrySet()) {
+             out.print("   " + subEntry.getKey().getName());
+@@ -474,7 +585,8 @@ public class HFilePrettyPrinter {
+     @Override
+     public void processHistogram(MetricName name, Histogram histogram, PrintStream stream) {
+       super.processHistogram(name, histogram, stream);
+-      stream.printf(Locale.getDefault(), "             count = %d\n", histogram.count());
++      stream.printf(Locale.getDefault(), "             count = %d\n", histogram.getCount());
+     }
++*/
+   }
+ }
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/master/balancer/StochasticLoadBalancer.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/master/balancer/StochasticLoadBalancer.java
+index 964d4f9..889eee6 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/master/balancer/StochasticLoadBalancer.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/master/balancer/StochasticLoadBalancer.java
+@@ -29,7 +29,7 @@ import java.util.Random;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+-import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
++import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+ import org.apache.hadoop.classification.InterfaceAudience;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.hbase.ClusterStatus;
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/MetricsMBeanBase.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/MetricsMBeanBase.java
+index 372115b..2ccd6b2 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/MetricsMBeanBase.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/MetricsMBeanBase.java
+@@ -29,7 +29,7 @@ import javax.management.MBeanException;
+ import javax.management.MBeanInfo;
+ import javax.management.ReflectionException;
+ 
+-import com.yammer.metrics.stats.Snapshot;
++import com.codahale.metrics.Snapshot;
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+ import org.apache.hadoop.classification.InterfaceAudience;
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/histogram/MetricsHistogram.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/histogram/MetricsHistogram.java
+index b98776c..9d03786 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/histogram/MetricsHistogram.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/metrics/histogram/MetricsHistogram.java
+@@ -25,10 +25,10 @@ import org.apache.hadoop.metrics.MetricsRecord;
+ import org.apache.hadoop.metrics.util.MetricsBase;
+ import org.apache.hadoop.metrics.util.MetricsRegistry;
+ 
+-import com.yammer.metrics.stats.Sample;
+-import com.yammer.metrics.stats.Snapshot;
+-import com.yammer.metrics.stats.UniformSample;
+-import com.yammer.metrics.stats.ExponentiallyDecayingSample;
++import com.codahale.metrics.Reservoir;
++import com.codahale.metrics.Snapshot;
++import com.codahale.metrics.UniformReservoir;
++import com.codahale.metrics.ExponentiallyDecayingReservoir;
+ 
+ @Deprecated
+ public class MetricsHistogram extends MetricsBase {
+@@ -66,9 +66,10 @@ public class MetricsHistogram extends MetricsBase {
+     this.min = new AtomicLong();
+     this.max = new AtomicLong();
+     this.sum = new AtomicLong();
++    this.forwardbiased = forwardBiased;
+     this.sample = forwardBiased ? 
+-        new ExponentiallyDecayingSample(DEFAULT_SAMPLE_SIZE, DEFAULT_ALPHA) 
+-    : new UniformSample(DEFAULT_SAMPLE_SIZE);
++        new ExponentiallyDecayingReservoir(DEFAULT_SAMPLE_SIZE, DEFAULT_ALPHA) 
++    : new UniformReservoir(DEFAULT_SAMPLE_SIZE);
+ 
+     this.variance =  new AtomicReference<double[]>(new double[]{-1, 0});
+     this.count = new AtomicLong();
+@@ -100,10 +101,11 @@ public class MetricsHistogram extends MetricsBase {
+     this(nam, registry, NO_DESCRIPTION);
+   }
+ 
+-  private final Sample sample;
++  private Reservoir sample;
+   private final AtomicLong min;
+   private final AtomicLong max;
+   private final AtomicLong sum;
++  private final boolean forwardbiased;
+ 
+   // these are for computing a running-variance, 
+   // without letting floating point errors accumulate via Welford's algorithm
+@@ -114,7 +116,9 @@ public class MetricsHistogram extends MetricsBase {
+    * Clears all recorded values.
+    */
+   public void clear() {
+-    this.sample.clear();
++    this.sample = this.forwardbiased ? 
++        new ExponentiallyDecayingReservoir(DEFAULT_SAMPLE_SIZE, DEFAULT_ALPHA) 
++    : new UniformReservoir(DEFAULT_SAMPLE_SIZE);
+     this.count.set(0);
+     this.max.set(Long.MIN_VALUE);
+     this.min.set(Long.MAX_VALUE);
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/RESTServer.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/RESTServer.java
+index 7de4d70..89af014 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/RESTServer.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/RESTServer.java
+@@ -19,10 +19,14 @@
+ package org.apache.hadoop.hbase.rest;
+ 
+ import java.util.ArrayList;
++import java.util.EnumSet;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Map.Entry;
+ 
++import javax.servlet.DispatcherType;
++import javax.servlet.Filter;
++
+ import org.apache.commons.cli.CommandLine;
+ import org.apache.commons.cli.HelpFormatter;
+ import org.apache.commons.cli.Options;
+@@ -42,14 +46,15 @@ import org.apache.hadoop.hbase.util.Strings;
+ import org.apache.hadoop.hbase.util.VersionInfo;
+ import org.apache.hadoop.net.DNS;
+ import org.apache.hadoop.security.UserGroupInformation;
+-import org.mortbay.jetty.Connector;
+-import org.mortbay.jetty.Server;
+-import org.mortbay.jetty.nio.SelectChannelConnector;
+-import org.mortbay.jetty.security.SslSelectChannelConnector;
+-import org.mortbay.jetty.servlet.Context;
+-import org.mortbay.jetty.servlet.FilterHolder;
+-import org.mortbay.jetty.servlet.ServletHolder;
+-import org.mortbay.thread.QueuedThreadPool;
++import org.eclipse.jetty.server.HttpConfiguration;
++import org.eclipse.jetty.server.HttpConnectionFactory;
++import org.eclipse.jetty.server.ServerConnector;
++import org.eclipse.jetty.server.Server;
++import org.eclipse.jetty.servlet.FilterHolder;
++import org.eclipse.jetty.servlet.ServletContextHandler;
++import org.eclipse.jetty.servlet.ServletHolder;
++import org.eclipse.jetty.util.thread.QueuedThreadPool;
++import org.eclipse.jetty.util.ssl.SslContextFactory;
+ 
+ import com.google.common.base.Preconditions;
+ import com.sun.jersey.api.json.JSONConfiguration;
+@@ -187,24 +192,6 @@ public class RESTServer implements Constants {
+ 
+     // set up Jetty and run the embedded server
+ 
+-    Server server = new Server();
+-
+-    Connector connector = new SelectChannelConnector();
+-    if(conf.getBoolean(REST_SSL_ENABLED, false)) {
+-      SslSelectChannelConnector sslConnector = new SslSelectChannelConnector();
+-      String keystore = conf.get(REST_SSL_KEYSTORE_STORE);
+-      String password = conf.get(REST_SSL_KEYSTORE_PASSWORD);
+-      String keyPassword = conf.get(REST_SSL_KEYSTORE_KEYPASSWORD, password);
+-      sslConnector.setKeystore(keystore);
+-      sslConnector.setPassword(password);
+-      sslConnector.setKeyPassword(keyPassword);
+-      connector = sslConnector;
+-    }
+-    connector.setPort(servlet.getConfiguration().getInt("hbase.rest.port", 8080));
+-    connector.setHost(servlet.getConfiguration().get("hbase.rest.host", "0.0.0.0"));
+-
+-    server.addConnector(connector);
+-
+     // Set the default max thread number to 100 to limit
+     // the number of concurrent requests so that REST server doesn't OOM easily.
+     // Jetty set the default max thread number to 250, if we don't set it.
+@@ -214,17 +201,36 @@ public class RESTServer implements Constants {
+     int minThreads = servlet.getConfiguration().getInt("hbase.rest.threads.min", 2);
+     QueuedThreadPool threadPool = new QueuedThreadPool(maxThreads);
+     threadPool.setMinThreads(minThreads);
+-    server.setThreadPool(threadPool);
+ 
+-    server.setSendServerVersion(false);
+-    server.setSendDateHeader(false);
++    Server server = new Server(threadPool);
++
++    HttpConfiguration http_config = new HttpConfiguration();
++    http_config.setSendServerVersion(false);
++    http_config.setSendDateHeader(false);
++
++    ServerConnector connector;
++    if(conf.getBoolean(REST_SSL_ENABLED, false)) {
++      SslContextFactory sslContextFactory = new SslContextFactory(conf.get(REST_SSL_KEYSTORE_STORE));
++      String password = conf.get(REST_SSL_KEYSTORE_PASSWORD);
++      String keyPassword = conf.get(REST_SSL_KEYSTORE_KEYPASSWORD, password);
++      sslContextFactory.setKeyStorePassword(password);
++      sslContextFactory.setKeyManagerPassword(keyPassword);
++      connector = new ServerConnector(server, sslContextFactory, new HttpConnectionFactory(http_config));
++    } else {
++      connector = new ServerConnector(server, new HttpConnectionFactory(http_config));
++    }
++    connector.setPort(servlet.getConfiguration().getInt("hbase.rest.port", 8080));
++    connector.setHost(servlet.getConfiguration().get("hbase.rest.host", "0.0.0.0"));
++
++    server.addConnector(connector);
++
+     server.setStopAtShutdown(true);
+       // set up context
+-    Context context = new Context(server, "/", Context.SESSIONS);
++    ServletContextHandler context = new ServletContextHandler(server, "/", ServletContextHandler.SESSIONS);
+     context.addServlet(shPojoMap, "/status/cluster");
+     context.addServlet(sh, "/*");
+     if (authFilter != null) {
+-      context.addFilter(authFilter, "/*", 1);
++      context.addFilter(authFilter, "/*", EnumSet.of(DispatcherType.REQUEST));
+     }
+ 
+     // Load filters from configuration.
+@@ -232,7 +238,7 @@ public class RESTServer implements Constants {
+       ArrayUtils.EMPTY_STRING_ARRAY);
+     for (String filter : filterClasses) {
+       filter = filter.trim();
+-      context.addFilter(Class.forName(filter), "/*", 0);
++      context.addFilter(filter, "/*", EnumSet.of(DispatcherType.REQUEST));
+     }
+ 
+     // Put up info server.
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/util/InfoServer.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/util/InfoServer.java
+index edbb0ca..28ad82a 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/util/InfoServer.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/util/InfoServer.java
+@@ -27,9 +27,9 @@ import java.util.Map;
+ import org.apache.hadoop.classification.InterfaceAudience;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.http.HttpServer;
+-import org.mortbay.jetty.handler.ContextHandlerCollection;
+-import org.mortbay.jetty.servlet.Context;
+-import org.mortbay.jetty.servlet.DefaultServlet;
++import org.eclipse.jetty.server.handler.ContextHandlerCollection;
++import org.eclipse.jetty.servlet.ServletContextHandler;
++import org.eclipse.jetty.servlet.DefaultServlet;
+ 
+ /**
+  * Create a Jetty embedded server to answer http requests. The primary goal
+@@ -69,8 +69,8 @@ public class InfoServer extends HttpServer {
+     // Must be same as up in hadoop.
+     final String logsContextPath = "/logs";
+     // Now, put my logs in place of hadoops... disable old one first.
+-    Context oldLogsContext = null;
+-    for (Map.Entry<Context, Boolean> e : defaultContexts.entrySet()) {
++    ServletContextHandler oldLogsContext = null;
++    for (Map.Entry<ServletContextHandler, Boolean> e : defaultContexts.entrySet()) {
+       if (e.getKey().getContextPath().equals(logsContextPath)) {
+         oldLogsContext = e.getKey();
+         break;
+@@ -84,8 +84,8 @@ public class InfoServer extends HttpServer {
+     String logDir = System.getProperty("hbase.log.dir");
+     if (logDir != null) {
+       // This is a little presumptious but seems to work.
+-      Context logContext =
+-        new Context((ContextHandlerCollection)this.webServer.getHandler(),
++      ServletContextHandler logContext =
++        new ServletContextHandler((ContextHandlerCollection)this.webServer.getHandler(),
+           logsContextPath);
+       logContext.setResourceBase(logDir);
+       logContext.addServlet(DefaultServlet.class, "/");
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/HFilePerformanceEvaluation.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/HFilePerformanceEvaluation.java
+index 6783cbf..42601a2 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/HFilePerformanceEvaluation.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/HFilePerformanceEvaluation.java
+@@ -24,8 +24,8 @@ import java.util.Random;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+-import org.apache.commons.math.random.RandomData;
+-import org.apache.commons.math.random.RandomDataImpl;
++import org.apache.commons.math3.random.RandomData;
++import org.apache.commons.math3.random.RandomDataImpl;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.fs.FileSystem;
+ import org.apache.hadoop.fs.Path;
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/MapFilePerformanceEvaluation.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/MapFilePerformanceEvaluation.java
+index ec47318..479d057 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/MapFilePerformanceEvaluation.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/MapFilePerformanceEvaluation.java
+@@ -23,8 +23,8 @@ import java.util.Random;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+-import org.apache.commons.math.random.RandomData;
+-import org.apache.commons.math.random.RandomDataImpl;
++import org.apache.commons.math3.random.RandomData;
++import org.apache.commons.math3.random.RandomDataImpl;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.fs.FileSystem;
+ import org.apache.hadoop.fs.Path;
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/client/TestHBaseAdminNoCluster.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/client/TestHBaseAdminNoCluster.java
+index ea92bd5..462b421 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/client/TestHBaseAdminNoCluster.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/client/TestHBaseAdminNoCluster.java
+@@ -35,7 +35,7 @@ import org.apache.hadoop.hbase.protobuf.generated.MasterProtos.CreateTableReques
+ import org.junit.Test;
+ import org.junit.experimental.categories.Category;
+ import org.mockito.Mockito;
+-import org.mortbay.log.Log;
++import org.eclipse.jetty.util.log.Log;
+ import org.apache.hadoop.hbase.client.HConnectionTestingUtility;
+ 
+ import com.google.protobuf.RpcController;
+@@ -80,7 +80,7 @@ public class TestHBaseAdminNoCluster {
+         admin.createTable(htd, HBaseTestingUtility.KEYS_FOR_HBA_CREATE_TABLE);
+         fail();
+       } catch (RetriesExhaustedException e) {
+-        Log.info("Expected fail", e);
++        Log.getRootLogger().info("Expected fail", e);
+       }
+       // Assert we were called 'count' times.
+       Mockito.verify(masterAdmin, Mockito.atLeast(count)).createTable((RpcController)Mockito.any(),
+@@ -90,4 +90,4 @@ public class TestHBaseAdminNoCluster {
+       if (connection != null)HConnectionManager.deleteConnection(configuration);
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/coprocessor/TestRowProcessorEndpoint.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/coprocessor/TestRowProcessorEndpoint.java
+index 3ac0ef7..ef1718e 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/coprocessor/TestRowProcessorEndpoint.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/coprocessor/TestRowProcessorEndpoint.java
+@@ -72,8 +72,8 @@ import org.junit.experimental.categories.Category;
+ 
+ import com.google.protobuf.ByteString;
+ import com.google.protobuf.Message;
+-import com.sun.org.apache.commons.logging.Log;
+-import com.sun.org.apache.commons.logging.LogFactory;
++import org.apache.commons.logging.Log;
++import org.apache.commons.logging.LogFactory;
+ 
+ /**
+  * Verifies ProcessEndpoint works.
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/TestHRegionOnCluster.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/TestHRegionOnCluster.java
+index b0c47c7..5b8c86d 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/TestHRegionOnCluster.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/TestHRegionOnCluster.java
+@@ -40,7 +40,7 @@ import org.apache.hadoop.hbase.util.Bytes;
+ import org.apache.hadoop.hbase.MediumTests;
+ import org.junit.Test;
+ import org.junit.experimental.categories.Category;
+-import org.mortbay.log.Log;
++import org.eclipse.jetty.util.log.Log;
+ 
+ /**
+  * Tests that need to spin up a cluster testing an {@link HRegion}.  Use
+@@ -73,7 +73,7 @@ public class TestHRegionOnCluster {
+       assertTrue(hbaseAdmin.isTableAvailable(TABLENAME));
+ 
+       // Put data: r1->v1
+-      Log.info("Loading r1 to v1 into " + Bytes.toString(TABLENAME));
++      Log.getRootLogger().info("Loading r1 to v1 into " + Bytes.toString(TABLENAME));
+       HTable table = new HTable(TEST_UTIL.getConfiguration(), TABLENAME);
+       putDataAndVerify(table, "r1", FAMILY, "v1", 1);
+ 
+@@ -87,7 +87,7 @@ public class TestHRegionOnCluster {
+       assertFalse(originServer.equals(targetServer));
+ 
+       TEST_UTIL.waitUntilAllRegionsAssigned(table.getName());
+-      Log.info("Moving " + regionInfo.getEncodedName() + " to " + targetServer.getServerName());
++      Log.getRootLogger().info("Moving " + regionInfo.getEncodedName() + " to " + targetServer.getServerName());
+       hbaseAdmin.move(regionInfo.getEncodedNameAsBytes(),
+           Bytes.toBytes(targetServer.getServerName().getServerName()));
+       do {
+@@ -95,12 +95,12 @@ public class TestHRegionOnCluster {
+       } while (cluster.getServerWith(regionInfo.getRegionName()) == originServerNum);
+ 
+       // Put data: r2->v2
+-      Log.info("Loading r2 to v2 into " + Bytes.toString(TABLENAME));
++      Log.getRootLogger().info("Loading r2 to v2 into " + Bytes.toString(TABLENAME));
+       putDataAndVerify(table, "r2", FAMILY, "v2", 2);
+ 
+       TEST_UTIL.waitUntilAllRegionsAssigned(table.getName());
+       // Move region to origin server
+-      Log.info("Moving " + regionInfo.getEncodedName() + " to " + originServer.getServerName());
++      Log.getRootLogger().info("Moving " + regionInfo.getEncodedName() + " to " + originServer.getServerName());
+       hbaseAdmin.move(regionInfo.getEncodedNameAsBytes(),
+           Bytes.toBytes(originServer.getServerName().getServerName()));
+       do {
+@@ -108,11 +108,11 @@ public class TestHRegionOnCluster {
+       } while (cluster.getServerWith(regionInfo.getRegionName()) == targetServerNum);
+ 
+       // Put data: r3->v3
+-      Log.info("Loading r3 to v3 into " + Bytes.toString(TABLENAME));
++      Log.getRootLogger().info("Loading r3 to v3 into " + Bytes.toString(TABLENAME));
+       putDataAndVerify(table, "r3", FAMILY, "v3", 3);
+ 
+       // Kill target server
+-      Log.info("Killing target server " + targetServer.getServerName());
++      Log.getRootLogger().info("Killing target server " + targetServer.getServerName());
+       targetServer.kill();
+       cluster.getRegionServerThreads().get(targetServerNum).join();
+       // Wait until finish processing of shutdown
+@@ -120,12 +120,12 @@ public class TestHRegionOnCluster {
+         Thread.sleep(5);
+       }
+       // Kill origin server
+-      Log.info("Killing origin server " + targetServer.getServerName());
++      Log.getRootLogger().info("Killing origin server " + targetServer.getServerName());
+       originServer.kill();
+       cluster.getRegionServerThreads().get(originServerNum).join();
+ 
+       // Put data: r4->v4
+-      Log.info("Loading r4 to v4 into " + Bytes.toString(TABLENAME));
++      Log.getRootLogger().info("Loading r4 to v4 into " + Bytes.toString(TABLENAME));
+       putDataAndVerify(table, "r4", FAMILY, "v4", 4);
+ 
+     } finally {
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/compactions/GaussianFileListGenerator.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/compactions/GaussianFileListGenerator.java
+index a19e9ad..c251faf 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/compactions/GaussianFileListGenerator.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/regionserver/compactions/GaussianFileListGenerator.java
+@@ -22,8 +22,8 @@ import java.util.ArrayList;
+ import java.util.Iterator;
+ import java.util.List;
+ 
+-import org.apache.commons.math.random.GaussianRandomGenerator;
+-import org.apache.commons.math.random.MersenneTwister;
++import org.apache.commons.math3.random.GaussianRandomGenerator;
++import org.apache.commons.math3.random.MersenneTwister;
+ import org.apache.hadoop.hbase.regionserver.StoreFile;
+ 
+ class GaussianFileListGenerator extends StoreFileListGenerator {
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/rest/HBaseRESTTestingUtility.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/rest/HBaseRESTTestingUtility.java
+index 8c316dd..c4783ee 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/rest/HBaseRESTTestingUtility.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/rest/HBaseRESTTestingUtility.java
+@@ -18,6 +18,9 @@
+  */
+ package org.apache.hadoop.hbase.rest;
+ 
++import java.util.EnumSet;
++import javax.servlet.DispatcherType;
++
+ import org.apache.commons.lang.ArrayUtils;
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+@@ -25,9 +28,12 @@ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.hbase.rest.filter.GzipFilter;
+ import org.apache.hadoop.hbase.security.User;
+ import org.apache.hadoop.util.StringUtils;
+-import org.mortbay.jetty.Server;
+-import org.mortbay.jetty.servlet.Context;
+-import org.mortbay.jetty.servlet.ServletHolder;
++import org.eclipse.jetty.server.HttpConfiguration;
++import org.eclipse.jetty.server.HttpConnectionFactory;
++import org.eclipse.jetty.server.Server;
++import org.eclipse.jetty.server.ServerConnector;
++import org.eclipse.jetty.servlet.ServletContextHandler;
++import org.eclipse.jetty.servlet.ServletHolder;
+ 
+ import com.sun.jersey.spi.container.servlet.ServletContainer;
+ 
+@@ -61,25 +67,29 @@ public class HBaseRESTTestingUtility {
+ 
+     LOG.info("configured " + ServletContainer.class.getName());
+     
++    HttpConfiguration http_config = new HttpConfiguration();
++    http_config.setSendServerVersion(false);
++    http_config.setSendDateHeader(false);
++
+     // set up Jetty and run the embedded server
+     server = new Server(0);
+-    server.setSendServerVersion(false);
+-    server.setSendDateHeader(false);
+       // set up context
+-    Context context = new Context(server, "/", Context.SESSIONS);
++    ServletContextHandler context = new ServletContextHandler(server, "/", ServletContextHandler.SESSIONS);
+     context.addServlet(sh, "/*");
+     // Load filters specified from configuration.
+     String[] filterClasses = conf.getStrings(Constants.FILTER_CLASSES,
+       ArrayUtils.EMPTY_STRING_ARRAY);
+     for (String filter : filterClasses) {
+       filter = filter.trim();
+-      context.addFilter(Class.forName(filter), "/*", 0);
++      context.addFilter(filter, "/*", EnumSet.of(DispatcherType.REQUEST));
+     }
+     LOG.info("Loaded filter classes :" + filterClasses);
++    ServerConnector connector = new ServerConnector(server, new HttpConnectionFactory(http_config));
++    server.addConnector(connector);
+       // start the server
+     server.start();
+       // get the port
+-    testServletPort = server.getConnectors()[0].getLocalPort();
++    testServletPort = ((ServerConnector) server.getConnectors()[0]).getLocalPort();
+ 
+     LOG.info("started " + server.getClass().getName() + " on port " + 
+       testServletPort);
+diff --git a/hbase-shell/pom.xml b/hbase-shell/pom.xml
+index b52e6df..6e602f3 100644
+--- a/hbase-shell/pom.xml
++++ b/hbase-shell/pom.xml
+@@ -191,7 +191,7 @@
+     </dependency>
+     <!-- General dependencies -->
+     <dependency>
+-      <groupId>com.yammer.metrics</groupId>
++      <groupId>com.codahale.metrics</groupId>
+       <artifactId>metrics-core</artifactId>
+     </dependency>
+     <dependency>
+@@ -200,7 +200,7 @@
+     </dependency>
+     <dependency>
+       <groupId>org.jruby</groupId>
+-      <artifactId>jruby-complete</artifactId>
++      <artifactId>jruby</artifactId>
+     </dependency>
+     <!-- Test Dependencies -->
+     <dependency>
+diff --git a/hbase-shell/src/main/ruby/hbase.rb b/hbase-shell/src/main/ruby/hbase.rb
+index 87512bf..f34cbe0 100644
+--- a/hbase-shell/src/main/ruby/hbase.rb
++++ b/hbase-shell/src/main/ruby/hbase.rb
+@@ -27,9 +27,9 @@
+ # whether the table exists and returns nil regardless.
+ include Java
+ 
+-include_class('java.lang.Integer') {|package,name| "J#{name}" }
+-include_class('java.lang.Long') {|package,name| "J#{name}" }
+-include_class('java.lang.Boolean') {|package,name| "J#{name}" }
++java_import('java.lang.Integer') {|package,name| "J#{name}" }
++java_import('java.lang.Long') {|package,name| "J#{name}" }
++java_import('java.lang.Boolean') {|package,name| "J#{name}" }
+ 
+ module HBaseConstants
+   COLUMN = "COLUMN"
+diff --git a/hbase-shell/src/main/ruby/irb/hirb.rb b/hbase-shell/src/main/ruby/irb/hirb.rb
+index b32e691..4d6d277 100644
+--- a/hbase-shell/src/main/ruby/irb/hirb.rb
++++ b/hbase-shell/src/main/ruby/irb/hirb.rb
+@@ -19,7 +19,7 @@
+ require 'rbconfig'
+ 
+ module IRB
+-  WINDOZE = Config::CONFIG['host_os'] =~ /mswin|mingw/
++  WINDOZE = RbConfig::CONFIG['host_os'] =~ /mswin|mingw/
+ 
+   # Subclass of IRB so can intercept methods
+   class HIRB < Irb
+diff --git a/hbase-shell/src/main/ruby/shell/formatter.rb b/hbase-shell/src/main/ruby/shell/formatter.rb
+index 36aaf76..42d88eb 100644
+--- a/hbase-shell/src/main/ruby/shell/formatter.rb
++++ b/hbase-shell/src/main/ruby/shell/formatter.rb
+@@ -30,7 +30,7 @@ module Shell
+ 
+       def refresh_width()
+         if $stdout.tty?
+-          @max_width = Java::jline.Terminal.getTerminal().getTerminalWidth()
++          @max_width = Java::jline.TerminalFactory.get().getWidth()
+         else
+           @max_width = 0
+         end
+diff --git a/hbase-thrift/pom.xml b/hbase-thrift/pom.xml
+index 1ac4ac5..2e1ab9f 100644
+--- a/hbase-thrift/pom.xml
++++ b/hbase-thrift/pom.xml
+@@ -164,7 +164,7 @@
+     </dependency>
+     <dependency>
+       <groupId>org.apache.commons</groupId>
+-      <artifactId>commons-math</artifactId>
++      <artifactId>commons-math3</artifactId>
+     </dependency>
+     <dependency>
+       <groupId>commons-lang</groupId>
+diff --git a/pom.xml b/pom.xml
+index d4b35c6..0c145b2 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -855,18 +855,19 @@
+     <commons-io.version>2.4</commons-io.version>
+     <commons-lang.version>2.6</commons-lang.version>
+     <commons-logging.version>1.1.1</commons-logging.version>
+-    <commons-math.version>2.2</commons-math.version>
++    <commons-math.version>3.2</commons-math.version>
+     <collections.version>3.2.1</collections.version>
+     <httpclient.version>3.1</httpclient.version>
+-    <metrics-core.version>2.1.2</metrics-core.version>
++    <metrics-core.version>3.0.1</metrics-core.version>
+     <guava.version>12.0.1</guava.version>
+     <jackson.version>1.8.8</jackson.version>
+-    <jasper.version>5.5.23</jasper.version>
++    <javax.servlet.version>2.2.5</javax.servlet.version>
+     <jaxb-api.version>2.2.2</jaxb-api.version>
+-    <jetty.version>6.1.26</jetty.version>
+-    <jetty.jspapi.version>6.1.14</jetty.jspapi.version>
++    <jetty.version>9.0.4.v20130625</jetty.version>
+     <jersey.version>1.8</jersey.version>
+-    <jruby.version>1.6.8</jruby.version>
++    <jruby.version>1.7.2</jruby.version>
++    <jspapi.version>2.1</jspapi.version>
++    <jspc-compiler.version>2.0-alpha-3</jspc-compiler.version>
+     <junit.version>4.11</junit.version>
+     <htrace.version>2.01</htrace.version>
+     <log4j.version>1.2.17</log4j.version>
+@@ -1056,7 +1057,7 @@
+         <version>${slf4j.version}</version>
+       </dependency>
+       <dependency>
+-        <groupId>com.yammer.metrics</groupId>
++        <groupId>com.codahale.metrics</groupId>
+         <artifactId>metrics-core</artifactId>
+         <version>${metrics-core.version}</version>
+       </dependency>
+@@ -1107,7 +1108,7 @@
+       </dependency>
+       <dependency>
+         <groupId>org.apache.commons</groupId>
+-        <artifactId>commons-math</artifactId>
++        <artifactId>commons-math3</artifactId>
+         <version>${commons-math.version}</version>
+       </dependency>
+       <dependency>
+@@ -1155,50 +1156,38 @@
+       </dependency>
+       <dependency>
+         <groupId>org.jruby</groupId>
+-        <artifactId>jruby-complete</artifactId>
++        <artifactId>jruby</artifactId>
+         <version>${jruby.version}</version>
+       </dependency>
+       <dependency>
+-        <groupId>org.mortbay.jetty</groupId>
+-        <artifactId>jetty</artifactId>
++        <groupId>org.eclipse.jetty</groupId>
++        <artifactId>jetty-server</artifactId>
+         <version>${jetty.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>org.mortbay.jetty</groupId>
+-            <artifactId>servlet-api</artifactId>
+-          </exclusion>
+-        </exclusions>
+       </dependency>
+       <dependency>
+-        <groupId>org.mortbay.jetty</groupId>
++        <groupId>org.eclipse.jetty</groupId>
+         <artifactId>jetty-util</artifactId>
+         <version>${jetty.version}</version>
+       </dependency>
+       <dependency>
+-        <groupId>org.mortbay.jetty</groupId>
+-        <artifactId>jetty-sslengine</artifactId>
++        <groupId>org.eclipse.jetty</groupId>
++        <artifactId>jetty-security</artifactId>
+         <version>${jetty.version}</version>
+       </dependency>
+       <dependency>
+-        <groupId>org.mortbay.jetty</groupId>
+-        <artifactId>jsp-2.1</artifactId>
+-        <version>${jetty.jspapi.version}</version>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>ant</groupId>
+-            <artifactId>ant</artifactId>
+-          </exclusion>
+-        </exclusions>
++        <groupId>org.eclipse.jetty</groupId>
++        <artifactId>jetty-jsp</artifactId>
++        <version>${jetty.version}</version>
+       </dependency>
+       <dependency>
+-        <groupId>org.mortbay.jetty</groupId>
+-        <artifactId>jsp-api-2.1</artifactId>
+-        <version>${jetty.jspapi.version}</version>
++        <groupId>javax.servlet.jsp</groupId>
++        <artifactId>jsp-api</artifactId>
++        <version>${jspapi.version}</version>
+       </dependency>
+       <dependency>
+-        <groupId>org.mortbay.jetty</groupId>
+-        <artifactId>servlet-api-2.5</artifactId>
+-        <version>${jetty.jspapi.version}</version>
++        <groupId>org.eclipse.jetty</groupId>
++        <artifactId>jetty-servlet</artifactId>
++        <version>${jetty.version}</version>
+       </dependency>
+       <!-- While jackson is also a dependency of jersey it
+            can bring in jars from different, incompatible versions. We force
+@@ -1230,36 +1219,16 @@
+        exceptions out of jetty deploying webapps.
+        St.Ack Thu May 20 01:04:41 PDT 2010
+       -->
+-        <groupId>tomcat</groupId>
+-        <artifactId>jasper-compiler</artifactId>
+-        <version>${jasper.version}</version>
++        <groupId>org.codehaus.mojo.jspc</groupId>
++        <artifactId>jspc-compiler-tomcat6</artifactId>
++        <version>${jspc-compiler.version}</version>
+         <scope>runtime</scope>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>javax.servlet</groupId>
+-            <artifactId>jsp-api</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>javax.servlet</groupId>
+-            <artifactId>servlet-api</artifactId>
+-          </exclusion>
+-          <exclusion>
+-            <groupId>ant</groupId>
+-            <artifactId>ant</artifactId>
+-          </exclusion>
+-        </exclusions>
+       </dependency>
+       <dependency>
+-        <groupId>tomcat</groupId>
+-        <artifactId>jasper-runtime</artifactId>
+-        <version>${jasper.version}</version>
++        <groupId>org.glassfish.web</groupId>
++        <artifactId>javax.servlet.jsp</artifactId>
++        <version>${javax.servlet.version}</version>
+         <scope>runtime</scope>
+-        <exclusions>
+-          <exclusion>
+-            <groupId>javax.servlet</groupId>
+-            <artifactId>servlet-api</artifactId>
+-          </exclusion>
+-        </exclusions>
+       </dependency>
+       <dependency>
+         <groupId>org.jamon</groupId>

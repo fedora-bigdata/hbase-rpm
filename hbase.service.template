@@ -1,0 +1,21 @@
+[Unit]
+Description=The HBase DAEMON daemon
+After=network.target
+After=NetworkManager.target
+
+[Service]
+Type=forking
+EnvironmentFile=-/etc/sysconfig/hbase
+EnvironmentFile=-/etc/sysconfig/hbase-DAEMON
+ExecStart=/usr/bin/hbase-daemon.sh start DAEMON
+ExecStop=/usr/bin/hbase-daemon.sh stop DAEMON
+User=hbase
+Group=hbase
+PIDFile=/var/run/hbase/hbase-hbase-DAEMON.pid
+LimitNOFILE=32768
+LimitNPROC=65536
+LimitMEMLOCK=infinity
+#ControlGroup=cpu:/hbase memory:/hbase
+
+[Install]
+WantedBy=multi-user.target
