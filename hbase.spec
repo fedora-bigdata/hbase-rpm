@@ -34,13 +34,12 @@ BuildRequires: jamon-maven-plugin
 BuildRequires: jansi
 BuildRequires: jcodings
 BuildRequires: jetty-jsp
-BuildRequires: jline2
+BuildRequires: jline
 BuildRequires: jnr-constants
 BuildRequires: jnr-posix
 BuildRequires: joda-time
 BuildRequires: joni
 BuildRequires: jruby
-BuildRequires: jspc-compiler-tomcat6
 BuildRequires: make
 BuildRequires: maven-clean-plugin
 BuildRequires: maven-dependency-plugin
@@ -49,18 +48,29 @@ BuildRequires: maven-failsafe-plugin
 BuildRequires: maven-install-plugin
 BuildRequires: maven-local
 BuildRequires: metrics
+BuildRequires: objectweb-asm
+BuildRequires: objectweb-asm3
 BuildRequires: snappy-java
 BuildRequires: systemd
 BuildRequires: xml-maven-plugin
 
 # Required for the shell
 Requires: bytelist
+Requires: invokebinder
 Requires: jcodings
 Requires: jansi
-Requires: jline2
+Requires: jline
+Requires: jnr-ffi
 Requires: jnr-posix
 Requires: jnr-constants
+# Documenting the dep here, but it's detected in autoRequires
+# Requires: jruby
+Requires: joda-time
 Requires: joni
+Requires: objectweb-asm
+
+Requires: apache-commons-lang3
+Requires: glassfish-el-api
 
 Requires(post): systemd
 Requires(preun): systemd
@@ -197,6 +207,8 @@ pushd %{name}-assembly/target/%{name}-%{version}
   rm -f %{buildroot}/%{_datadir}/%{name}/lib/tools-*.jar
   rm -f %{buildroot}/%{_datadir}/%{name}/lib/%{name}*-tests.jar
   rm -f %{buildroot}/%{_datadir}/%{name}/lib/%{name}-testing-util-*.jar
+  rm -f %{buildroot}/%{_datadir}/%{name}/lib/tomcat-*.jar
+  rm -f %{buildroot}/%{_datadir}/%{name}/lib/servlet-api-*.jar
   xmvn-subst %{buildroot}/%{_datadir}/%{name}/lib
   pushd %{buildroot}/%{_datadir}/%{name}/lib
     # Replace jar files with symlinks for all jars from the build
@@ -206,12 +218,6 @@ pushd %{name}-assembly/target/%{name}-%{version}
       rm -f $f
       %{__ln_s} %{_javadir}/%{name}/$n $f
     done
-
-    # Replace the tomcat-juli jar with a symlink
-    f=`ls tomcat-juli*`
-    n=`echo $f | sed "s/-%{version}//"`
-    rm -f $f
-    %{__ln_s} %{_javadir}/tomcat/$n $f
   popd
 
   # jruby bits
@@ -232,7 +238,7 @@ pushd %{buildroot}/%{_datadir}/%{name}
 popd
 
 # Add jars to the classpath for hbase shell
-echo "export HBASE_CLASSPATH=$(build-classpath objectweb-asm4/asm objectweb-asm4/asm-commons jnr-posix jnr-constants joni jruby bytelist jcodings jnr-ffi joda-time jline2 jansi):$HBASE_CLASSPATH" > %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env-shell.sh
+echo "export HBASE_CLASSPATH=$(build-classpath objectweb-asm/asm objectweb-asm/asm-commons jnr-posix jnr-constants joni jruby bytelist jcodings jnr-ffi joda-time jline jansi invokebinder):\$HBASE_CLASSPATH" > %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env-shell.sh
 echo "export JRUBY_HOME=/usr/share/jruby" >> %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env-shell.sh
 
 # Ensure /var/run directory is recreated on boot
