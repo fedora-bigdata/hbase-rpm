@@ -120,7 +120,7 @@ index 5646d12..1a8016a 100644
  import org.apache.hadoop.hbase.HColumnDescriptor;
  import org.apache.hadoop.hbase.HTableDescriptor;
 diff --git a/hbase-server/pom.xml b/hbase-server/pom.xml
-index 1691ed7..3c46ac2 100644
+index 1691ed7..84f1128 100644
 --- a/hbase-server/pom.xml
 +++ b/hbase-server/pom.xml
 @@ -330,7 +330,7 @@
@@ -181,16 +181,14 @@ index 1691ed7..3c46ac2 100644
      </dependency>
      <dependency>
        <groupId>org.codehaus.jackson</groupId>
-@@ -406,12 +406,12 @@
+@@ -406,12 +406,8 @@
        <artifactId>jackson-jaxrs</artifactId>
      </dependency>
      <dependency>
 -      <groupId>tomcat</groupId>
 -      <artifactId>jasper-compiler</artifactId>
-+      <groupId>org.codehaus.mojo.jspc</groupId>
-+      <artifactId>jspc-compiler-tomcat6</artifactId>
-     </dependency>
-     <dependency>
+-    </dependency>
+-    <dependency>
 -      <groupId>tomcat</groupId>
 -      <artifactId>jasper-runtime</artifactId>
 +      <groupId>org.glassfish.web</groupId>
@@ -616,6 +614,73 @@ index 7de4d70..89af014 100644
      }
  
      // Put up info server.
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPRequestStream.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPRequestStream.java
+index 9df561d..2a00e9b 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPRequestStream.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPRequestStream.java
+@@ -22,6 +22,7 @@ package org.apache.hadoop.hbase.rest.filter;
+ import java.io.IOException;
+ import java.util.zip.GZIPInputStream;
+ 
++import javax.servlet.ReadListener;
+ import javax.servlet.ServletInputStream;
+ import javax.servlet.http.HttpServletRequest;
+ 
+@@ -55,4 +56,28 @@ public class GZIPRequestStream extends ServletInputStream
+   public void close() throws IOException {
+     in.close();
+   }
++
++  @Override
++  public void setReadListener(ReadListener readListener) {
++  }
++
++  @Override
++  public boolean isFinished() {
++    try {
++      return in.available() == 0;
++    }
++    catch (IOException e) {
++      return true;
++    }
++  }
++
++  @Override
++  public boolean isReady() {
++    try {
++      return in.available() == 1;
++    }
++    catch (IOException e) {
++      return false;
++    }
++  }
+ }
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPResponseStream.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPResponseStream.java
+index 37af2fa..2c99e00 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPResponseStream.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/rest/filter/GZIPResponseStream.java
+@@ -24,6 +24,7 @@ import java.util.zip.GZIPOutputStream;
+ 
+ import javax.servlet.ServletOutputStream;
+ import javax.servlet.http.HttpServletResponse;
++import javax.servlet.WriteListener;
+ 
+ import org.apache.hadoop.classification.InterfaceAudience;
+ 
+@@ -75,4 +76,13 @@ public class GZIPResponseStream extends ServletOutputStream
+   public void finish() throws IOException {
+     out.finish();
+   }
++
++  @Override
++  public boolean isReady() {
++    return true;
++  }
++
++  @Override
++  public void setWriteListener(WriteListener writeListener) {
++  }
+ }
 diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/util/InfoServer.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/util/InfoServer.java
 index edbb0ca..28ad82a 100644
 --- a/hbase-server/src/main/java/org/apache/hadoop/hbase/util/InfoServer.java
@@ -963,7 +1028,7 @@ index 1ac4ac5..2e1ab9f 100644
      <dependency>
        <groupId>commons-lang</groupId>
 diff --git a/pom.xml b/pom.xml
-index d4b35c6..0c145b2 100644
+index d4b35c6..9f35fa1 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -855,18 +855,19 @@
@@ -983,7 +1048,7 @@ index d4b35c6..0c145b2 100644
      <jaxb-api.version>2.2.2</jaxb-api.version>
 -    <jetty.version>6.1.26</jetty.version>
 -    <jetty.jspapi.version>6.1.14</jetty.jspapi.version>
-+    <jetty.version>9.0.4.v20130625</jetty.version>
++    <jetty.version>9.1.0.v20131115</jetty.version>
      <jersey.version>1.8</jersey.version>
 -    <jruby.version>1.6.8</jruby.version>
 +    <jruby.version>1.7.2</jruby.version>
@@ -1076,16 +1141,22 @@ index d4b35c6..0c145b2 100644
        </dependency>
        <!-- While jackson is also a dependency of jersey it
             can bring in jars from different, incompatible versions. We force
-@@ -1230,36 +1219,16 @@
-        exceptions out of jetty deploying webapps.
-        St.Ack Thu May 20 01:04:41 PDT 2010
-       -->
+@@ -1224,42 +1213,10 @@
+         <version>${jackson.version}</version>
+       </dependency>
+       <dependency>
+-        <!--If this is not in the runtime lib, we get odd
+-      "2009-02-27 11:38:39.504::WARN:  failed jsp
+-       java.lang.NoSuchFieldError: IS_SECURITY_ENABLED"
+-       exceptions out of jetty deploying webapps.
+-       St.Ack Thu May 20 01:04:41 PDT 2010
+-      -->
 -        <groupId>tomcat</groupId>
 -        <artifactId>jasper-compiler</artifactId>
 -        <version>${jasper.version}</version>
-+        <groupId>org.codehaus.mojo.jspc</groupId>
-+        <artifactId>jspc-compiler-tomcat6</artifactId>
-+        <version>${jspc-compiler.version}</version>
++        <groupId>org.glassfish.web</groupId>
++        <artifactId>javax.servlet.jsp</artifactId>
++        <version>${javax.servlet.version}</version>
          <scope>runtime</scope>
 -        <exclusions>
 -          <exclusion>
@@ -1101,15 +1172,12 @@ index d4b35c6..0c145b2 100644
 -            <artifactId>ant</artifactId>
 -          </exclusion>
 -        </exclusions>
-       </dependency>
-       <dependency>
+-      </dependency>
+-      <dependency>
 -        <groupId>tomcat</groupId>
 -        <artifactId>jasper-runtime</artifactId>
 -        <version>${jasper.version}</version>
-+        <groupId>org.glassfish.web</groupId>
-+        <artifactId>javax.servlet.jsp</artifactId>
-+        <version>${javax.servlet.version}</version>
-         <scope>runtime</scope>
+-        <scope>runtime</scope>
 -        <exclusions>
 -          <exclusion>
 -            <groupId>javax.servlet</groupId>
