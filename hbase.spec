@@ -294,5 +294,5 @@ getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/
 %files -f .mfiles-%{name}-tests tests
 
 %changelog
-* Thu Dec 12 2013 Robert Rati <rrati@redhat> - 0.96.0-1
+* Fri Dec 20 2013 Robert Rati <rrati@redhat> - 0.96.0-1
 - Initial packaging
