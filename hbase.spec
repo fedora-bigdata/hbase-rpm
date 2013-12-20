@@ -195,9 +195,9 @@ pushd %{name}-assembly/target/%{name}-%{version}
   # Modify hbase-env.sh to point to the correct location for log files
   sed -i "s|#\s*export HBASE_LOG_DIR.*|export HBASE_LOG_DIR=/var/log/hbase|" %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env.sh
 
-  # Modify hbase-env.sh and add hadoop's configuration directory for 
-  # HDFS client configuration
-  sed -i "s|#\s*export HBASE_CLASSPATH.*|export HBASE_CLASSPATH=/etc/hadoop|" %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env.sh
+  # Link the hdfs-site.xml into the config directory to pick up any HDFS
+  # client configuration
+  %{__ln_s} %{_sysconfdir}/hadoop/hdfs-site.xml %{buildroot}/%{_sysconfdir}/%{name}
 
   # Webapps
   cp -arp %{name}-webapps/* %{buildroot}/%{_sharedstatedir}/%{name}/%{name}-webapps
