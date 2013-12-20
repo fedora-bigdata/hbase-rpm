@@ -1,4 +1,4 @@
-/var/log/hbase/*.out
+/var/log/hbase/*.log
 {
     missingok
     copytruncate
