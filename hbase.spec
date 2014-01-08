@@ -1,12 +1,16 @@
 %global _hardened_build 1
 
-%global commit 4534083f4a787eab610cb27d2711719c174b1ec4
+%global commit 3bfbff994e9ece179bb5ac747978677a911790c9
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global services hbase-master.service hbase-thrift.service hbase-rest.service hbase-zookeeper.service hbase-regionserver.service hbase-master-backup.service
 
+# Currently disabled because packaging the singular binary in a noarch package
+# is troublesome
+%global package_native 0
+
 Name: hbase
-Version: 0.96.0
+Version: 0.96.1.1
 Release: 1%{?dist}
 Summary: A database for Apache Hadoop
 License: ASL 2.0
@@ -80,7 +84,7 @@ Requires(postun): systemd
 Apache HBase is a database for Apache Hadoop that provides a distributed,
 scalable, big data store.
 
-%if 0
+%if %{package_native}
 %package native
 Summary: Native Apache HBase libraries
 Requires: %{name} = %{version}-%{release}
@@ -114,7 +118,9 @@ This package contains test related resources for Apache HBase.
 %prep
 %setup -qn %{name}-%{commit}
 %patch0 -p1
+%if %{package_native}
 %patch1 -p1
+%endif
 
 # Remove the findbugs-maven-plugin.  It's not needed and isn't available
 %pom_remove_plugin :findbugs-maven-plugin
@@ -126,7 +132,7 @@ This package contains test related resources for Apache HBase.
 %pom_remove_plugin org.apache.rat:apache-rat-plugin
 
 # Change findbugs-annotation gid:aid
-sed -i "s/com.github.stephenc.findbugs/net.sourceforge.findbugs/" pom.xml
+sed -i "s/com.github.stephenc.findbugs/com.google.code.findbugs/" pom.xml
 sed -i "s/Id>findbugs-annotations/Id>annotations/" pom.xml
 
 # Fix surefire plugin config: perThread -> perthread
@@ -137,7 +143,10 @@ sed -i "s/perThread/perthread/" pom.xml
 %mvn_package :::tests: %{name}-tests
 
 %build
-%mvn_build -- -Dhadoop.profile=2.0 -Pnative clean install -DskipTests assembly:single -Prelease
+%if %{package_native}
+profile="-Pnative"
+%endif
+%mvn_build -- -Dhadoop.profile=2.0 $profile clean install -DskipTests assembly:single -Prelease
 
 #%%check
 #xmvn -Dhadoop.profile=2.0 test
@@ -282,7 +291,7 @@ getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/
 %attr(0755,hbase,hbase) %dir %{_var}/log/%{name}
 %attr(0755,hbase,hbase) %dir %{_var}/run/%{name}
 
-%if 0
+%if %{package_native}
 %files native
 %{_datadir}/%{name}/lib/native
 %{_libdir}/%{name}
@@ -294,5 +303,10 @@ getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/
 %files -f .mfiles-%{name}-tests tests
 
 %changelog
+* Mon Jan 6 2014 Robert Rati <rrati@redhat> - 0.96.1.1-1
+- Update to upstream 0.96.1.1
+- Properly conditionalize packaging native bits
+- Changed findbugs:annotations to use new gid:aid
+
 * Fri Dec 20 2013 Robert Rati <rrati@redhat> - 0.96.0-1
 - Initial packaging

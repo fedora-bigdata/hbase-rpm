@@ -1,5 +1,5 @@
 diff --git a/hbase-shell/pom.xml b/hbase-shell/pom.xml
-index 6e602f3..3f1626a 100644
+index 6059587..d7b75d3 100644
 --- a/hbase-shell/pom.xml
 +++ b/hbase-shell/pom.xml
 @@ -239,38 +239,6 @@
