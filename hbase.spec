@@ -247,7 +247,7 @@ pushd %{buildroot}/%{_datadir}/%{name}
 popd
 
 # Add jars to the classpath for hbase shell
-echo "export HBASE_CLASSPATH=$(build-classpath objectweb-asm/asm objectweb-asm/asm-commons jnr-posix jnr-constants joni jruby bytelist jcodings jnr-ffi joda-time jline jansi invokebinder):\$HBASE_CLASSPATH" > %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env-shell.sh
+echo "export HBASE_CLASSPATH_PREFIX=$(build-classpath objectweb-asm/asm objectweb-asm/asm-commons jnr-posix jnr-constants joni jruby bytelist jcodings jnr-ffi joda-time jline jansi invokebinder):\$HBASE_CLASSPATH" > %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env-shell.sh
 echo "export JRUBY_HOME=/usr/share/jruby" >> %{buildroot}/%{_sysconfdir}/%{name}/%{name}-env-shell.sh
 
 # Ensure /var/run directory is recreated on boot
