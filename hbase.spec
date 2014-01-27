@@ -14,7 +14,7 @@
 
 Name: hbase
 Version: 0.96.1.1
-Release: 2%{?dist}
+Release: 3%{?dist}
 Summary: A database for Apache Hadoop
 License: ASL 2.0
 URL: http://hbase.apache.org/
@@ -311,6 +311,9 @@ getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/
 %files -f .mfiles-%{name}-tests tests
 
 %changelog
+* Mon Jan 27 2014 Robert Rati <rrati@redhat> - 0.96.1.1-3
+- Added option to enable running the test suite
+
 * Mon Jan 13 2014 Robert Rati <rrati@redhat> - 0.96.1.1-2
 - Made sure the shell classpath mods are prefixed to the classpath
 
