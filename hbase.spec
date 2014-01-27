@@ -9,6 +9,9 @@
 # is troublesome
 %global package_native 0
 
+# Disable running the test suite by default
+%bcond_with tests
+
 Name: hbase
 Version: 0.96.1.1
 Release: 2%{?dist}
@@ -148,8 +151,13 @@ profile="-Pnative"
 %endif
 %mvn_build -- -Dhadoop.profile=2.0 $profile clean install -DskipTests assembly:single -Prelease
 
-#%%check
-#xmvn -Dhadoop.profile=2.0 test
+%if %{with tests}
+%check
+%if %{package_native}
+profile="-Pnative"
+%endif
+xmvn -o -Dhadoop.profile=2.0 $profile test
+%endif
 
 %install
 %mvn_install
