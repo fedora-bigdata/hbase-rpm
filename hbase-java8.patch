@@ -1,0 +1,19 @@
+diff --git a/hbase-client/src/main/java/org/apache/hadoop/hbase/util/PoolMap.java b/hbase-client/src/main/java/org/apache/hadoop/hbase/util/PoolMap.java
+index 7283831..5326de4 100644
+--- a/hbase-client/src/main/java/org/apache/hadoop/hbase/util/PoolMap.java
++++ b/hbase-client/src/main/java/org/apache/hadoop/hbase/util/PoolMap.java
+@@ -93,14 +93,6 @@ public class PoolMap<K, V> implements Map<K, V> {
+     return null;
+   }
+ 
+-  /**
+-   * @deprecated Will be removed for Java 8, use {@link #removeValue} instead
+-   */
+-  @Deprecated
+-  public boolean remove(K key, V value) {
+-    return removeValue(key, value);
+-  }
+-
+   public boolean removeValue(K key, V value) {
+     Pool<V> pool = pools.get(key);
+     boolean res = false;

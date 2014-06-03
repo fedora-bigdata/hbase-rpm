@@ -23,7 +23,7 @@
 <configuration>
   <property>
     <name>hbase.tmp.dir</name>
-    <value>/var/cache/hbase/hbase</value>
+    <value>/var/cache/hbase</value>
     <description>The temporary directory.
     </description>
   </property>
@@ -62,7 +62,7 @@
   </property>
   <property>
     <name>hbase.zookeeper.property.dataDir</name>
-    <value>/var/cache/hbase/zookeeper</value>
+    <value>/var/lib/hbase/zookeeper</value>
     <description>Property from ZooKeeper's config zoo.cfg.
       The directory where the snapshot is stored.
     </description>

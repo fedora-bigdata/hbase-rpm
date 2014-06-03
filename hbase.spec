@@ -1,6 +1,6 @@
 %global _hardened_build 1
 
-%global commit 3bfbff994e9ece179bb5ac747978677a911790c9
+%global commit 7f57708da22668e7570629698777e229d5cf8039
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global services hbase-master.service hbase-thrift.service hbase-rest.service hbase-zookeeper.service hbase-regionserver.service hbase-master-backup.service
@@ -12,9 +12,12 @@
 # Disable running the test suite by default
 %bcond_with tests
 
+# Disable javadoc generation by default
+%bcond_with javadoc
+
 Name: hbase
-Version: 0.96.1.1
-Release: 4%{?dist}
+Version: 0.98.2
+Release: 1%{?dist}
 Summary: A database for Apache Hadoop
 License: ASL 2.0
 URL: http://hbase.apache.org/
@@ -23,7 +26,7 @@ Source1: %{name}.logrotate
 Source2: %{name}-site.xml
 Source3: %{name}.service.template
 Patch0: %{name}-fedora-integration.patch
-Patch1: %{name}-native-compile.patch
+Patch1: %{name}-java8.patch
 BuildArch: noarch
 # There is no hadoop on ARM
 ExcludeArch: %{arm}
@@ -48,6 +51,7 @@ BuildRequires: joda-time
 BuildRequires: joni
 BuildRequires: jruby
 BuildRequires: make
+BuildRequires: maven-antrun-plugin
 BuildRequires: maven-clean-plugin
 BuildRequires: maven-dependency-plugin
 BuildRequires: maven-eclipse-plugin
@@ -99,12 +103,14 @@ scalable, big data store.
 This package contains native libraries for Apache HBase.
 %endif
 
+%if %{with javadoc}
 %package javadoc
 Summary: Javadoc for Apache HBase
 BuildArch: noarch
 
 %description javadoc
 This package contains the API documentation for %{name}.
+%endif
 
 %package tests
 Summary: Apache HBase test resources
@@ -121,9 +127,7 @@ This package contains test related resources for Apache HBase.
 %prep
 %setup -qn %{name}-%{commit}
 %patch0 -p1
-%if %{package_native}
 %patch1 -p1
-%endif
 
 # Remove the findbugs-maven-plugin.  It's not needed and isn't available
 %pom_remove_plugin :findbugs-maven-plugin
@@ -149,7 +153,10 @@ sed -i "s/perThread/perthread/" pom.xml
 %if %{package_native}
 profile="-Pnative"
 %endif
-%mvn_build -- -Dhadoop.profile=2.0 $profile clean install -DskipTests assembly:single -Prelease
+%if %{without javadoc}
+opts="-j"
+%endif
+%mvn_build $opts -- $profile clean install -DskipTests assembly:single -Prelease
 
 %if %{with tests}
 %check
@@ -168,14 +175,14 @@ tar -C %{name}-assembly/target -zxf %{name}-assembly/target/%{name}-%{version}-b
 install -d -m 0755 %{buildroot}/%{_bindir}
 install -d -m 0755 %{buildroot}/%{_datadir}/%{name}/bin
 install -d -m 0755 %{buildroot}/%{_datadir}/%{name}/lib
+install -d -m 0755 %{buildroot}/%{_datadir}/%{name}/%{name}-webapps
 install -d -m 0755 %{buildroot}/%{_libdir}/%{name}
-install -d -m 0755 %{buildroot}/%{_sharedstatedir}/%{name}/%{name}-webapps
 install -d -m 0755 %{buildroot}/%{_sysconfdir}/%{name}
 install -d -m 0755 %{buildroot}/%{_sysconfdir}/logrotate.d
 install -d -m 0755 %{buildroot}/%{_tmpfilesdir}
-install -d -m 0755 %{buildroot}/%{_unitdir}/
-install -d -m 0755 %{buildroot}/%{_var}/cache/%{name}/zookeeper
-install -d -m 0755 %{buildroot}/%{_var}/cache/%{name}/%{name}
+install -d -m 0755 %{buildroot}/%{_unitdir}
+install -d -m 0755 %{buildroot}/%{_var}/cache/%{name}
+install -d -m 0755 %{buildroot}/%{_sharedstatedir}/%{name}/zookeeper
 install -d -m 0755 %{buildroot}/%{_var}/log/%{name}
 install -d -m 0755 %{buildroot}/%{_var}/run/%{name}
 
@@ -217,7 +224,7 @@ pushd %{name}-assembly/target/%{name}-%{version}
   %{__ln_s} %{_sysconfdir}/hadoop/hdfs-site.xml %{buildroot}/%{_sysconfdir}/%{name}
 
   # Webapps
-  cp -arp %{name}-webapps/* %{buildroot}/%{_sharedstatedir}/%{name}/%{name}-webapps
+  cp -arp %{name}-webapps/* %{buildroot}/%{_datadir}/%{name}/%{name}-webapps
 
   # Dependency jars
   install lib/*.jar %{buildroot}/%{_datadir}/%{name}/lib
@@ -247,7 +254,6 @@ pushd %{name}-assembly/target/%{name}-%{version}
 popd
 
 pushd %{buildroot}/%{_datadir}/%{name}
-  %{__ln_s} %{_sharedstatedir}/%{name}/%{name}-webapps
   %{__ln_s} %{_sysconfdir}/%{name} conf
   %{__ln_s} %{_libdir}/%{name} lib/native
   %{__ln_s} %{_var}/log/%{name} logs
@@ -271,18 +277,74 @@ do
   sed -e "s|DAEMON|$s|g" %{SOURCE3} > %{buildroot}/%{_unitdir}/%{name}-$s.service
 done
 
+%pretrans -p <lua>
+path = "%{_datadir}/%{name}/%{name}-webapps"
+st = posix.stat(path)
+if st and st.type == "link" then
+  os.remove(path)
+end
+
 %pre
 getent group hbase >/dev/null || /usr/sbin/groupadd -r hbase
-getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/nologin -g hbase -r -d %{_var}/cache/hbase hbase
+getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/nologin -g hbase -r -d %{_sharedstatedir}/%{name} hbase
 
 %preun
 %systemd_preun %{services}
 
 %post
+# Change the home directory for the hbase user
+if [[ `getent passwd hbase | cut -d: -f 6` != "%{_sharedstatedir}/%{name}" ]]
+then
+  /usr/sbin/usermod -d %{_sharedstatedir}/%{name} hbase
+fi
+
+if [ $1 -gt 1 ]
+then
+  if [ -d %{_var}/cache/%{name}/zookeeper ] && [ ! -L %{_var}/cache/%{name}/zookeeper ]
+  then
+    # Move the existing zookeeper data to the new location
+    mv -f %{_var}/cache/%{name}/zookeeper/* %{_sharedstatedir}/%{name}/zookeeper
+  fi
+
+  if [ -d %{_var}/cache/%{name}/%{name} ] && [ ! -L %{_var}/cache/%{name}/%{name} ]
+  then
+    # Move the existing hbase data to the new location
+    mv -f %{_var}/cache/%{name}/%{name}/* %{_var}/cache/%{name}
+  fi
+fi
 %systemd_post %{services}
 
 %postun
 %systemd_postun_with_restart %{services}
+
+if [ $1 -lt 1 ]
+then
+  # Remove compatibility symlinks
+  rm -f %{_var}/cache/%{name}/%{name}
+  rm -f %{_var}/cache/%{name}/zookeeper
+fi
+
+%posttrans
+# Create symlinks to the new locations for zookeeper and hbase data in case
+# the user changed the configuration file and the new one isn't in place to
+# point to the correct location
+if [ -d %{_var}/cache/%{name}/zookeeper ]
+then
+  rm -rf %{_var}/cache/%{name}/zookeeper
+fi
+if [ ! -e %{_var}/cache/%{name}/zookeeper ]
+then
+  %{__ln_s} %{_sharedstatedir}/%{name}/zookeeper %{_var}/cache/%{name}
+fi
+
+if [ -d %{_var}/cache/%{name}/%{name} ]
+then
+  rm -rf %{_var}/cache/%{name}/%{name}
+fi
+if [ ! -e %{_var}/cache/%{name}/%{name} ]
+then
+  %{__ln_s} %{_var}/cache/%{name} %{_var}/cache/%{name}
+fi
 
 %files -f .mfiles
 %doc LICENSE.txt NOTICE.txt README.txt CHANGES.txt
@@ -290,7 +352,7 @@ getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/
 %{_bindir}/*
 %{_datadir}/%{name}
 %dir %{_javadir}/%{name}
-%{_sharedstatedir}/%{name}
+%attr(-,hbase,hbase) %{_sharedstatedir}/%{name}
 %config(noreplace) %{_sysconfdir}/%{name}
 %config(noreplace) %{_sysconfdir}/logrotate.d/%{name}
 %{_tmpfilesdir}/%{name}.conf
@@ -305,8 +367,10 @@ getent passwd hbase > /dev/null || /usr/sbin/useradd -c "Apache HBase" -s /sbin/
 %{_libdir}/%{name}
 %endif
 
+%if %{with javadoc}
 %files -f .mfiles-javadoc javadoc
 %doc LICENSE.txt NOTICE.txt
+%endif
 
 %files -f .mfiles-%{name}-tests tests
 
