@@ -1,6 +1,6 @@
 %global _hardened_build 1
 
-%global commit 7f57708da22668e7570629698777e229d5cf8039
+%global commit 7257dbc58fe27ec3b1b573707bb0a8f6fde3d462
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %global services hbase-master.service hbase-thrift.service hbase-rest.service hbase-zookeeper.service hbase-regionserver.service hbase-master-backup.service
@@ -16,7 +16,7 @@
 %bcond_with javadoc
 
 Name: hbase
-Version: 0.98.2
+Version: 0.98.3
 Release: 1%{?dist}
 Summary: A database for Apache Hadoop
 License: ASL 2.0
@@ -148,6 +148,11 @@ sed -i "s/perThread/perthread/" pom.xml
 # Create separate file lists for packaging
 %mvn_package :%{name}-testing-util::{}: %{name}-tests
 %mvn_package :::tests: %{name}-tests
+
+# Add test scope for hbase-common-tests to hbase-prefix-tree
+%pom_xpath_inject "pom:project/pom:dependencies/pom:dependency[pom:artifactId='hbase-common' and pom:classifier='tests']" "
+      <scope>test</scope>
+" hbase-prefix-tree
 
 %build
 %if %{package_native}

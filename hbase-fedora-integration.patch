@@ -1,5 +1,5 @@
 diff --git a/hbase-hadoop1-compat/pom.xml b/hbase-hadoop1-compat/pom.xml
-index 36f81d6..8d3249e 100644
+index b08bf3b..ed0b98f 100644
 --- a/hbase-hadoop1-compat/pom.xml
 +++ b/hbase-hadoop1-compat/pom.xml
 @@ -114,7 +114,7 @@ limitations under the License.
@@ -47,7 +47,7 @@ index b7c24dd..2feb3da 100644
      min = new AtomicLong(Long.MAX_VALUE);
      max = new AtomicLong(Long.MIN_VALUE);
 diff --git a/hbase-hadoop2-compat/pom.xml b/hbase-hadoop2-compat/pom.xml
-index 7a2881a..5e5d020 100644
+index 67c01e2..19e1e08 100644
 --- a/hbase-hadoop2-compat/pom.xml
 +++ b/hbase-hadoop2-compat/pom.xml
 @@ -154,7 +154,7 @@ limitations under the License.
@@ -95,7 +95,7 @@ index 2423b95..5c176df 100644
      min = new AtomicLong(Long.MAX_VALUE);
      max = new AtomicLong(Long.MIN_VALUE);
 diff --git a/hbase-it/pom.xml b/hbase-it/pom.xml
-index c609d97..08f6e7b 100644
+index bd3225b..a814422 100644
 --- a/hbase-it/pom.xml
 +++ b/hbase-it/pom.xml
 @@ -185,7 +185,7 @@
@@ -121,7 +121,7 @@ index 5d2f6ea..522bb57 100644
  import org.apache.hadoop.hbase.HColumnDescriptor;
  import org.apache.hadoop.hbase.HTableDescriptor;
 diff --git a/hbase-server/pom.xml b/hbase-server/pom.xml
-index e08ea94..8fe1b77 100644
+index d29b3c7..c1d4f7d 100644
 --- a/hbase-server/pom.xml
 +++ b/hbase-server/pom.xml
 @@ -133,6 +133,13 @@
@@ -710,7 +710,7 @@ index ec47318..479d057 100644
  import org.apache.hadoop.fs.FileSystem;
  import org.apache.hadoop.fs.Path;
 diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/PerformanceEvaluation.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/PerformanceEvaluation.java
-index 3887f36..d12a025 100644
+index fc7b512..274b8f6 100644
 --- a/hbase-server/src/test/java/org/apache/hadoop/hbase/PerformanceEvaluation.java
 +++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/PerformanceEvaluation.java
 @@ -42,7 +42,7 @@ import java.util.concurrent.Future;
@@ -923,7 +923,7 @@ index 553bb35..a4ad6e8 100644
    
    public TestVersionModel() throws Exception {
 diff --git a/hbase-shell/pom.xml b/hbase-shell/pom.xml
-index 37f463d..784c60e 100644
+index 266f0e6..2ecbad4 100644
 --- a/hbase-shell/pom.xml
 +++ b/hbase-shell/pom.xml
 @@ -191,7 +191,7 @@
@@ -988,7 +988,7 @@ index 36aaf76..42d88eb 100644
            @max_width = 0
          end
 diff --git a/hbase-thrift/pom.xml b/hbase-thrift/pom.xml
-index 830f847..704a813 100644
+index fd989bf..6ef73c1 100644
 --- a/hbase-thrift/pom.xml
 +++ b/hbase-thrift/pom.xml
 @@ -107,6 +107,13 @@
@@ -1041,7 +1041,7 @@ index 830f847..704a813 100644
    </dependencies>
    <profiles>
 diff --git a/pom.xml b/pom.xml
-index 9bf39d0..eb1fc03 100644
+index 3770152..3a69610 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -889,18 +889,19 @@
