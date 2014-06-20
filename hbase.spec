@@ -26,7 +26,10 @@ Source1: %{name}.logrotate
 Source2: %{name}-site.xml
 Source3: %{name}.service.template
 Patch0: %{name}-fedora-integration.patch
+# Changes for java8
 Patch1: %{name}-java8.patch
+# Update to guava 17.0
+Patch2: %{name}-guava.patch
 BuildArch: noarch
 # There is no hadoop on ARM
 ExcludeArch: %{arm}
@@ -128,6 +131,7 @@ This package contains test related resources for Apache HBase.
 %setup -qn %{name}-%{commit}
 %patch0 -p1
 %patch1 -p1
+%patch2 -p1
 
 # Remove the findbugs-maven-plugin.  It's not needed and isn't available
 %pom_remove_plugin :findbugs-maven-plugin

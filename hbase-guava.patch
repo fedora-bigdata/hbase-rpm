@@ -1,0 +1,272 @@
+diff --git a/hbase-client/src/main/java/org/apache/hadoop/hbase/catalog/CatalogTracker.java b/hbase-client/src/main/java/org/apache/hadoop/hbase/catalog/CatalogTracker.java
+index 71a78f7..0b184ad 100644
+--- a/hbase-client/src/main/java/org/apache/hadoop/hbase/catalog/CatalogTracker.java
++++ b/hbase-client/src/main/java/org/apache/hadoop/hbase/catalog/CatalogTracker.java
+@@ -47,6 +47,7 @@ import java.net.NoRouteToHostException;
+ import java.net.SocketException;
+ import java.net.SocketTimeoutException;
+ import java.net.UnknownHostException;
++import java.util.concurrent.TimeUnit;
+ 
+ /**
+  * Tracks the availability of the catalog tables
+@@ -304,11 +305,11 @@ public class CatalogTracker {
+    * @throws InterruptedException if interrupted while waiting
+    */
+   public void waitForMeta() throws InterruptedException {
+-    Stopwatch stopwatch = new Stopwatch().start();
++    Stopwatch stopwatch = Stopwatch.createStarted();
+     while (!this.stopped) {
+       try {
+         if (waitForMeta(100) != null) break;
+-        long sleepTime = stopwatch.elapsedMillis();
++        long sleepTime = stopwatch.elapsed(TimeUnit.MILLISECONDS);
+         // +1 in case sleepTime=0
+         if ((sleepTime + 1) % 10000 == 0) {
+           LOG.warn("Have been waiting for meta to be assigned for " + sleepTime + "ms");
+diff --git a/hbase-client/src/test/java/org/apache/hadoop/hbase/client/TestClientNoCluster.java b/hbase-client/src/test/java/org/apache/hadoop/hbase/client/TestClientNoCluster.java
+index 7ee4476..989803a 100644
+--- a/hbase-client/src/test/java/org/apache/hadoop/hbase/client/TestClientNoCluster.java
++++ b/hbase-client/src/test/java/org/apache/hadoop/hbase/client/TestClientNoCluster.java
+@@ -30,6 +30,7 @@ import java.util.SortedMap;
+ import java.util.concurrent.ConcurrentSkipListMap;
+ import java.util.concurrent.ExecutorService;
+ import java.util.concurrent.Executors;
++import java.util.concurrent.TimeUnit;
+ import java.util.concurrent.atomic.AtomicInteger;
+ import java.util.concurrent.atomic.AtomicLong;
+ 
+@@ -706,8 +707,7 @@ public class TestClientNoCluster extends Configured implements Tool {
+     Random rd = new Random(id);
+     boolean get = c.getBoolean("hbase.test.do.gets", false);
+     try {
+-      Stopwatch stopWatch = new Stopwatch();
+-      stopWatch.start();
++      Stopwatch stopWatch = Stopwatch.createStarted();
+       for (int i = 0; i < namespaceSpan; i++) {
+         byte [] b = format(rd.nextLong());
+         if (get){
+@@ -719,7 +719,7 @@ public class TestClientNoCluster extends Configured implements Tool {
+           table.put(p);
+         }
+         if (i % printInterval == 0) {
+-          LOG.info("Put " + printInterval + "/" + stopWatch.elapsedMillis());
++          LOG.info("Put " + printInterval + "/" + stopWatch.elapsed(TimeUnit.MILLISECONDS));
+           stopWatch.reset();
+           stopWatch.start();
+         }
+@@ -811,4 +811,4 @@ public class TestClientNoCluster extends Configured implements Tool {
+   public static void main(String[] args) throws Exception {
+     System.exit(ToolRunner.run(HBaseConfiguration.create(), new TestClientNoCluster(), args));
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/regionserver/HRegion.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/regionserver/HRegion.java
+index 482ec6b..9854df4 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/regionserver/HRegion.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/regionserver/HRegion.java
+@@ -1212,7 +1212,7 @@ public class HRegion implements HeapSize { // , Writable{
+         this.metricsRegion.close();
+       }
+       if ( this.metricsRegionWrapper != null) {
+-        Closeables.closeQuietly(this.metricsRegionWrapper);
++        Closeables.close(this.metricsRegionWrapper, true);
+       }
+       status.markComplete("Closed");
+       LOG.info("Closed " + this);
+diff --git a/hbase-server/src/main/java/org/apache/hadoop/hbase/util/JvmPauseMonitor.java b/hbase-server/src/main/java/org/apache/hadoop/hbase/util/JvmPauseMonitor.java
+index 41d2efb..b064b88 100644
+--- a/hbase-server/src/main/java/org/apache/hadoop/hbase/util/JvmPauseMonitor.java
++++ b/hbase-server/src/main/java/org/apache/hadoop/hbase/util/JvmPauseMonitor.java
+@@ -22,6 +22,7 @@ import java.lang.management.ManagementFactory;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Set;
++import java.util.concurrent.TimeUnit;
+ 
+ import org.apache.commons.logging.Log;
+ import org.apache.commons.logging.LogFactory;
+@@ -151,7 +152,7 @@ public class JvmPauseMonitor {
+   private class Monitor implements Runnable {
+     @Override
+     public void run() {
+-      Stopwatch sw = new Stopwatch();
++      Stopwatch sw = Stopwatch.createUnstarted();
+       Map<String, GcTimes> gcTimesBeforeSleep = getGcTimes();
+       while (shouldRun) {
+         sw.reset().start();
+@@ -160,7 +161,7 @@ public class JvmPauseMonitor {
+         } catch (InterruptedException ie) {
+           return;
+         }
+-        long extraSleepTime = sw.elapsedMillis() - SLEEP_INTERVAL_MS;
++        long extraSleepTime = sw.elapsed(TimeUnit.MILLISECONDS) - SLEEP_INTERVAL_MS;
+         Map<String, GcTimes> gcTimesAfterSleep = getGcTimes();
+ 
+         if (extraSleepTime > warnThresholdMs) {
+@@ -189,4 +190,4 @@ public class JvmPauseMonitor {
+       list.add(String.valueOf(i++));
+     }
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/hbase-server/src/test/java/org/apache/hadoop/hbase/ScanPerformanceEvaluation.java b/hbase-server/src/test/java/org/apache/hadoop/hbase/ScanPerformanceEvaluation.java
+index 484a00c..714ee3f 100644
+--- a/hbase-server/src/test/java/org/apache/hadoop/hbase/ScanPerformanceEvaluation.java
++++ b/hbase-server/src/test/java/org/apache/hadoop/hbase/ScanPerformanceEvaluation.java
+@@ -100,8 +100,8 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+     FileSystem fs = filename.getFileSystem(getConf());
+ 
+     // read the file from start to finish
+-    Stopwatch fileOpenTimer = new Stopwatch();
+-    Stopwatch streamTimer = new Stopwatch();
++    Stopwatch fileOpenTimer = Stopwatch.createUnstarted();
++    Stopwatch streamTimer = Stopwatch.createUnstarted();
+ 
+     fileOpenTimer.start();
+     FSDataInputStream in = fs.open(filename);
+@@ -118,11 +118,11 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+     }
+     streamTimer.stop();
+ 
+-    double throughput = (double)totalBytes / streamTimer.elapsedTime(TimeUnit.SECONDS);
++    double throughput = (double)totalBytes / streamTimer.elapsed(TimeUnit.SECONDS);
+ 
+     System.out.println("HDFS streaming: ");
+-    System.out.println("total time to open: " + fileOpenTimer.elapsedMillis() + " ms");
+-    System.out.println("total time to read: " + streamTimer.elapsedMillis() + " ms");
++    System.out.println("total time to open: " + fileOpenTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
++    System.out.println("total time to read: " + streamTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
+     System.out.println("total bytes: " + totalBytes + " bytes ("
+         + StringUtils.humanReadableInt(totalBytes) + ")");
+     System.out.println("throghput  : " + StringUtils.humanReadableInt((long)throughput) + "B/s");
+@@ -141,9 +141,9 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+   }
+ 
+   public void testScan() throws IOException {
+-    Stopwatch tableOpenTimer = new Stopwatch();
+-    Stopwatch scanOpenTimer = new Stopwatch();
+-    Stopwatch scanTimer = new Stopwatch();
++    Stopwatch tableOpenTimer = Stopwatch.createUnstarted();
++    Stopwatch scanOpenTimer = Stopwatch.createUnstarted();
++    Stopwatch scanTimer = Stopwatch.createUnstarted();
+ 
+     tableOpenTimer.start();
+     HTable table = new HTable(getConf(), TableName.valueOf(tablename));
+@@ -172,14 +172,14 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+ 
+     ScanMetrics metrics = ProtobufUtil.toScanMetrics(scan.getAttribute(Scan.SCAN_ATTRIBUTES_METRICS_DATA));
+     long totalBytes = metrics.countOfBytesInResults.get();
+-    double throughput = (double)totalBytes / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputRows = (double)numRows / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputCells = (double)numCells / scanTimer.elapsedTime(TimeUnit.SECONDS);
++    double throughput = (double)totalBytes / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputRows = (double)numRows / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputCells = (double)numCells / scanTimer.elapsed(TimeUnit.SECONDS);
+ 
+     System.out.println("HBase scan: ");
+-    System.out.println("total time to open table: " + tableOpenTimer.elapsedMillis() + " ms");
+-    System.out.println("total time to open scanner: " + scanOpenTimer.elapsedMillis() + " ms");
+-    System.out.println("total time to scan: " + scanTimer.elapsedMillis() + " ms");
++    System.out.println("total time to open table: " + tableOpenTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
++    System.out.println("total time to open scanner: " + scanOpenTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
++    System.out.println("total time to scan: " + scanTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
+ 
+     System.out.println("Scan metrics:\n" + metrics.getMetricsMap());
+ 
+@@ -194,9 +194,9 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+ 
+ 
+   public void testSnapshotScan() throws IOException {
+-    Stopwatch snapshotRestoreTimer = new Stopwatch();
+-    Stopwatch scanOpenTimer = new Stopwatch();
+-    Stopwatch scanTimer = new Stopwatch();
++    Stopwatch snapshotRestoreTimer = Stopwatch.createUnstarted();
++    Stopwatch scanOpenTimer = Stopwatch.createUnstarted();
++    Stopwatch scanTimer = Stopwatch.createUnstarted();
+ 
+     Path restoreDir = new Path(this.restoreDir);
+ 
+@@ -226,14 +226,14 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+ 
+     ScanMetrics metrics = scanner.getScanMetrics();
+     long totalBytes = metrics.countOfBytesInResults.get();
+-    double throughput = (double)totalBytes / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputRows = (double)numRows / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputCells = (double)numCells / scanTimer.elapsedTime(TimeUnit.SECONDS);
++    double throughput = (double)totalBytes / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputRows = (double)numRows / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputCells = (double)numCells / scanTimer.elapsed(TimeUnit.SECONDS);
+ 
+     System.out.println("HBase scan snapshot: ");
+-    System.out.println("total time to restore snapshot: " + snapshotRestoreTimer.elapsedMillis() + " ms");
+-    System.out.println("total time to open scanner: " + scanOpenTimer.elapsedMillis() + " ms");
+-    System.out.println("total time to scan: " + scanTimer.elapsedMillis() + " ms");
++    System.out.println("total time to restore snapshot: " + snapshotRestoreTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
++    System.out.println("total time to open scanner: " + scanOpenTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
++    System.out.println("total time to scan: " + scanTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
+ 
+     System.out.println("Scan metrics:\n" + metrics.getMetricsMap());
+ 
+@@ -263,8 +263,8 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+   }
+ 
+   public void testScanMapReduce() throws IOException, InterruptedException, ClassNotFoundException {
+-    Stopwatch scanOpenTimer = new Stopwatch();
+-    Stopwatch scanTimer = new Stopwatch();
++    Stopwatch scanOpenTimer = Stopwatch.createUnstarted();
++    Stopwatch scanTimer = Stopwatch.createUnstarted();
+ 
+     Scan scan = getScan();
+ 
+@@ -298,13 +298,13 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+     long numCells = counters.findCounter(ScanCounter.NUM_CELLS).getValue();
+ 
+     long totalBytes = counters.findCounter(HBASE_COUNTER_GROUP_NAME, "BYTES_IN_RESULTS").getValue();
+-    double throughput = (double)totalBytes / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputRows = (double)numRows / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputCells = (double)numCells / scanTimer.elapsedTime(TimeUnit.SECONDS);
++    double throughput = (double)totalBytes / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputRows = (double)numRows / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputCells = (double)numCells / scanTimer.elapsed(TimeUnit.SECONDS);
+ 
+     System.out.println("HBase scan mapreduce: ");
+-    System.out.println("total time to open scanner: " + scanOpenTimer.elapsedMillis() + " ms");
+-    System.out.println("total time to scan: " + scanTimer.elapsedMillis() + " ms");
++    System.out.println("total time to open scanner: " + scanOpenTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
++    System.out.println("total time to scan: " + scanTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
+ 
+     System.out.println("total bytes: " + totalBytes + " bytes ("
+         + StringUtils.humanReadableInt(totalBytes) + ")");
+@@ -316,8 +316,8 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+   }
+ 
+   public void testSnapshotScanMapReduce() throws IOException, InterruptedException, ClassNotFoundException {
+-    Stopwatch scanOpenTimer = new Stopwatch();
+-    Stopwatch scanTimer = new Stopwatch();
++    Stopwatch scanOpenTimer = Stopwatch.createUnstarted();
++    Stopwatch scanTimer = Stopwatch.createUnstarted();
+ 
+     Scan scan = getScan();
+ 
+@@ -353,13 +353,13 @@ public class ScanPerformanceEvaluation extends AbstractHBaseTool {
+     long numCells = counters.findCounter(ScanCounter.NUM_CELLS).getValue();
+ 
+     long totalBytes = counters.findCounter(HBASE_COUNTER_GROUP_NAME, "BYTES_IN_RESULTS").getValue();
+-    double throughput = (double)totalBytes / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputRows = (double)numRows / scanTimer.elapsedTime(TimeUnit.SECONDS);
+-    double throughputCells = (double)numCells / scanTimer.elapsedTime(TimeUnit.SECONDS);
++    double throughput = (double)totalBytes / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputRows = (double)numRows / scanTimer.elapsed(TimeUnit.SECONDS);
++    double throughputCells = (double)numCells / scanTimer.elapsed(TimeUnit.SECONDS);
+ 
+     System.out.println("HBase scan mapreduce: ");
+-    System.out.println("total time to open scanner: " + scanOpenTimer.elapsedMillis() + " ms");
+-    System.out.println("total time to scan: " + scanTimer.elapsedMillis() + " ms");
++    System.out.println("total time to open scanner: " + scanOpenTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
++    System.out.println("total time to scan: " + scanTimer.elapsed(TimeUnit.MILLISECONDS) + " ms");
+ 
+     System.out.println("total bytes: " + totalBytes + " bytes ("
+         + StringUtils.humanReadableInt(totalBytes) + ")");
