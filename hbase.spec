@@ -384,6 +384,12 @@ fi
 %files -f .mfiles-%{name}-tests tests
 
 %changelog
+* Wed Jun 25 2014 Robert Rati <rrati@redhat> - 0.98.3-1
+- Update to upstream 0.98.3
+- Fixes for guava 17.0
+- Conditionalize javadoc creation
+- Fix FTBFS(#1096107,#1106755)
+
 * Fri Mar 28 2014 Michael Simacek <msimacek@redhat.com> - 0.96.1.1-4
 - Use Requires: java-headless rebuild (#1067528)
 
