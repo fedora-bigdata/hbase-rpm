@@ -390,6 +390,9 @@ fi
 - Conditionalize javadoc creation
 - Fix FTBFS(#1096107,#1106755)
 
+* Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0.96.1.1-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
 * Fri Mar 28 2014 Michael Simacek <msimacek@redhat.com> - 0.96.1.1-4
 - Use Requires: java-headless rebuild (#1067528)
 
